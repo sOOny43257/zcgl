@@ -148,8 +148,8 @@
         <!-- 操作按钮 -->
         <div class="flex justify-end space-x-3">
             <a href="{{ route('intakes.index') }}" class="px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">取消</a>
-            <button type="button" @click="submitDraft()" class="px-6 py-2.5 border border-blue-600 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-50">保存草稿</button>
-            <button type="button" @click="submitFinal()" class="px-6 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">提交入库</button>
+            <button type="button" onclick="submitDraft()" class="px-6 py-2.5 border border-blue-600 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-50">保存草稿</button>
+            <button type="button" onclick="submitFinal()" class="px-6 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">提交入库</button>
         </div>
     </form>
 
@@ -185,7 +185,7 @@
                 const tpl = this.items.length > 0 ? { ...this.items[this.items.length - 1] } : newItem();
                 // Clear name and SN for copies, keep category/brand/model/department/room/user/price
                 for (let i = 0; i < count; i++) {
-                    const copy = { ...tpl, name: tpl.name ? tpl.name + ' (' + (this.items.length + 1) + ')' : '', sn: '' };
+                    const copy = { ...tpl, sn: '' };
                     this.items.push(copy);
                 }
             },
