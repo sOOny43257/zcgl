@@ -38,8 +38,46 @@
             <div><span class="text-gray-500">验收人：</span><span class="text-gray-800">{{ $intake->approver ?: '-' }}</span></div>
             <div><span class="text-gray-500">创建时间：</span><span class="text-gray-800">{{ $intake->created_at->format('Y-m-d H:i') }}</span></div>
             <div><span class="text-gray-500">备注：</span><span class="text-gray-800">{{ $intake->remarks ?: '-' }}</span></div>
+            @if($intake->description)
+            <div class="sm:col-span-4">
+                <span class="text-gray-500">入库说明：</span><span class="text-gray-800">{{ $intake->description }}</span>
+            </div>
+            @endif
+        </div>
+        <!-- 金额校验提示 -->
+        @php
+            $itemSum = collect($items)->sum(fn($it) => (float) ($it['purchase_price'] ?? 0));
+        @endphp
+        @if($intake->total_amount && abs($itemSum - (float)$intake->total_amount) > 0.01)
+        <div class="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <svg class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+            总金额（{{ number_format($intake->total_amount, 2) }}）与明细合计（{{ number_format($itemSum, 2) }}）不一致，差额 {{ number_format(abs($itemSum - (float)$intake->total_amount), 2) }} 元
+        </div>
+        @endif
+    </div>
+
+    <!-- 附件 -->
+    @if(!empty($intake->attachments))
+    <div class="bg-white rounded-xl shadow-sm p-6 mb-4">
+        <h3 class="text-base font-semibold text-gray-800 mb-3">附件</h3>
+        <div class="flex flex-wrap gap-3">
+            @foreach($intake->attachments as $att)
+            @php $ext = strtolower(pathinfo($att, PATHINFO_EXTENSION)); @endphp
+            <a href="{{ Storage::url($att) }}" target="_blank"
+               class="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50 hover:border-blue-300">
+                @if(in_array($ext, ['jpg','jpeg','png','gif']))
+                    <svg class="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                @elseif($ext === 'pdf')
+                    <svg class="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                @else
+                    <svg class="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                @endif
+                <span class="text-gray-700">{{ basename($att) }}</span>
+            </a>
+            @endforeach
         </div>
     </div>
+    @endif
 
     <!-- 资产明细 -->
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -88,11 +126,20 @@
                     </tr>
                     @endforeach
                 </tbody>
+                <tfoot class="bg-gray-50 text-sm font-medium">
+                    <tr>
+                        <td colspan="9" class="px-3 py-2.5 text-right text-gray-500">明细合计</td>
+                        <td class="px-3 py-2.5 text-right text-blue-600">{{ number_format($itemSum, 2) }}</td>
+                        @if($intake->status === 'active')
+                        <td></td>
+                        @endif
+                    </tr>
+                </tfoot>
             </table>
         </div>
     </div>
 
-    <!-- 操作按钮（草稿可编辑/作废） -->
+    <!-- 操作按钮 -->
     @if(auth()->user()->isAdmin())
     <div class="mt-4 flex justify-end space-x-3">
         @if($intake->status === 'draft')

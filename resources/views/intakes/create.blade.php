@@ -6,12 +6,12 @@
         </div>
     </x-slot>
 
-    <form method="POST" action="{{ route('intakes.store') }}" id="intakeForm">
+    <form method="POST" action="{{ route('intakes.store') }}" id="intakeForm" enctype="multipart/form-data">
         @csrf
         <input type="hidden" name="_action" value="draft" id="formAction">
 
         <!-- 单据信息 -->
-        <div class="bg-white rounded-xl shadow-sm p-6 mb-4">
+        <div class="bg-white rounded-xl shadow-sm p-6 mb-4" x-data="{ get totalAmount() { return parseFloat(document.getElementById('total_amount')?.value) || 0 }, get itemsSum() { return 0 } }" x-init="$watch('$el', ()=>{})">
             <h3 class="text-base font-semibold text-gray-800 mb-4">单据信息</h3>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
@@ -29,7 +29,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">总金额</label>
-                    <input type="number" step="0.01" name="total_amount" value="{{ old('total_amount') }}" class="w-full border border-gray-300 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <input type="number" step="0.01" name="total_amount" id="total_amount" value="{{ old('total_amount') }}" class="w-full border border-gray-300 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" oninput="window._intakeAmountCheck && window._intakeAmountCheck()">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">验收人</label>
@@ -38,6 +38,10 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
                     <input type="text" name="remarks" value="{{ old('remarks') }}" class="w-full border border-gray-300 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="sm:col-span-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">入库说明</label>
+                    <textarea name="description" rows="2" placeholder="请输入入库说明（选填）" class="w-full border border-gray-300 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{{ old('description') }}</textarea>
                 </div>
             </div>
         </div>
@@ -121,7 +125,7 @@
                                     <input type="text" :name="'items['+index+'][user]'" x-model="item.user" class="w-20 border border-gray-200 rounded py-1.5 px-2 text-sm">
                                 </td>
                                 <td class="px-2 py-2">
-                                    <input type="number" step="0.01" :name="'items['+index+'][purchase_price]'" x-model="item.purchase_price" class="w-24 border border-gray-200 rounded py-1.5 px-2 text-sm">
+                                    <input type="number" step="0.01" :name="'items['+index+'][purchase_price]'" x-model="item.purchase_price" @input="calcSum()" class="w-24 border border-gray-200 rounded py-1.5 px-2 text-sm">
                                 </td>
                                 <td class="px-2 py-2">
                                     <div class="flex items-center gap-1">
@@ -139,9 +143,36 @@
                 </table>
             </div>
             <p x-show="items.length === 0" class="text-center text-gray-400 py-6">请点击"添加一行"开始录入资产明细</p>
-            <div x-show="items.length > 0" class="mt-3 flex items-center justify-between text-xs text-gray-500">
-                <span>共 <strong x-text="items.length"></strong> 项资产</span>
-                <button type="button" @click="if(confirm('确定清空所有明细？')) items.splice(1)" x-show="items.length > 1" class="text-red-400 hover:text-red-600">清空全部</button>
+
+            <!-- 金额汇总 -->
+            <div x-show="items.length > 0" class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between text-sm">
+                <div class="flex items-center gap-4">
+                    <span class="text-gray-500">共 <strong class="text-gray-800" x-text="items.length"></strong> 项资产</span>
+                    <span class="text-gray-500">明细合计：<strong class="text-blue-600" x-text="itemsSum.toFixed(2)"></strong> 元</span>
+                    <span x-show="totalAmount > 0" class="text-gray-500">总金额：<strong x-text="totalAmount.toFixed(2)"></strong> 元</span>
+                    <span x-show="totalAmount > 0 && Math.abs(itemsSum - totalAmount) > 0.01" class="text-red-500 font-medium">
+                        <svg class="h-4 w-4 inline mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                        金额不一致！差额 <span x-text="Math.abs(itemsSum - totalAmount).toFixed(2)"></span> 元
+                    </span>
+                    <span x-show="totalAmount > 0 && Math.abs(itemsSum - totalAmount) <= 0.01" class="text-green-600 font-medium">
+                        <svg class="h-4 w-4 inline mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        金额一致
+                    </span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" @click="if(confirm('确定清空所有明细？')) { items.splice(1); calcSum(); }" x-show="items.length > 1" class="text-red-400 hover:text-red-600 text-xs">清空全部</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 附件上传 -->
+        <div class="bg-white rounded-xl shadow-sm p-6 mb-4">
+            <h3 class="text-base font-semibold text-gray-800 mb-4">附件</h3>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">上传佐证材料（支持图片、PDF、Office文档，单个文件最大10MB）</label>
+                <input type="file" name="attachments[]" multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar"
+                       class="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                @error('attachments.*')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
             </div>
         </div>
 
@@ -164,6 +195,8 @@
             categories: [],
             departments: [],
             batchCount: 10,
+            itemsSum: 0,
+            totalAmount: 0,
 
             async init() {
                 try {
@@ -174,6 +207,15 @@
                     if (catRes.ok) this.categories = await catRes.json();
                     if (deptRes.ok) this.departments = await deptRes.json();
                 } catch(e) {}
+
+                this.calcSum();
+                const self = this;
+                window._intakeAmountCheck = function() { self.calcSum(); };
+            },
+
+            calcSum() {
+                this.itemsSum = this.items.reduce((s, it) => s + (parseFloat(it.purchase_price) || 0), 0);
+                this.totalAmount = parseFloat(document.getElementById('total_amount')?.value) || 0;
             },
 
             addItem() {
@@ -183,29 +225,47 @@
             addBatchItems() {
                 const count = Math.min(Math.max(parseInt(this.batchCount) || 1, 1), 999);
                 const tpl = this.items.length > 0 ? { ...this.items[this.items.length - 1] } : newItem();
-                // Clear name and SN for copies, keep category/brand/model/department/room/user/price
                 for (let i = 0; i < count; i++) {
                     const copy = { ...tpl, sn: '' };
                     this.items.push(copy);
                 }
+                this.calcSum();
             },
 
             copyItem(index) {
                 const src = this.items[index];
                 const copy = { ...src };
                 this.items.splice(index + 1, 0, copy);
+                this.calcSum();
             },
 
             removeItem(index) {
-                if (this.items.length > 1) this.items.splice(index, 1);
+                if (this.items.length > 1) {
+                    this.items.splice(index, 1);
+                    this.calcSum();
+                }
             }
         };
     }
+
     function submitDraft() {
         document.getElementById('formAction').value = 'draft';
         document.getElementById('intakeForm').submit();
     }
+
     function submitFinal() {
+        // 校验总金额与明细合计
+        const totalEl = document.getElementById('total_amount');
+        const totalVal = parseFloat(totalEl?.value) || 0;
+        if (totalVal > 0) {
+            const inputs = document.querySelectorAll('input[name$="[purchase_price]"]');
+            let sum = 0;
+            inputs.forEach(inp => { sum += parseFloat(inp.value) || 0; });
+            if (Math.abs(sum - totalVal) > 0.01) {
+                alert('总金额（' + totalVal.toFixed(2) + '）与明细单价合计（' + sum.toFixed(2) + '）不一致，无法提交！\n\n请修正后再提交。');
+                return;
+            }
+        }
         document.getElementById('formAction').value = 'submit';
         document.getElementById('intakeForm').submit();
     }

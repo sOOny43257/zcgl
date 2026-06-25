@@ -9,11 +9,12 @@ class AssetIntake extends Model
     protected $fillable = [
         'order_no', 'intake_date', 'supplier', 'purchase_order_no',
         'total_amount', 'operator', 'approver', 'status',
-        'draft_data', 'remarks',
+        'draft_data', 'remarks', 'description', 'attachments',
     ];
 
     protected $casts = [
         'draft_data' => 'array',
+        'attachments' => 'array',
         'total_amount' => 'decimal:2',
         'intake_date' => 'date',
     ];
