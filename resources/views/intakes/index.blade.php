@@ -43,32 +43,46 @@
 
     <!-- 列表 -->
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <!-- 计数 -->
+        <div class="px-4 py-2 border-b bg-gray-50/50 flex items-center justify-between">
+            <span class="text-xs text-gray-500">共 <strong class="text-blue-600">{{ $intakes->total() }}</strong> 条入库单</span>
+        </div>
+
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-gray-50 text-gray-500">
                     <tr>
-                        <th class="px-4 py-3 text-left font-medium">入库单号</th>
-                        <th class="px-4 py-3 text-left font-medium">入库日期</th>
-                        <th class="px-4 py-3 text-left font-medium">供应商</th>
-                        <th class="px-4 py-3 text-center font-medium">资产数量</th>
-                        <th class="px-4 py-3 text-right font-medium">总金额</th>
-                        <th class="px-4 py-3 text-left font-medium">经办人</th>
-                        <th class="px-4 py-3 text-left font-medium">状态</th>
-                        <th class="px-4 py-3 text-center font-medium">操作</th>
+                        <th class="px-3 py-2.5 text-left font-medium">#</th>
+                        <th class="px-3 py-2.5 text-left font-medium">入库单号</th>
+                        <th class="px-3 py-2.5 text-left font-medium">入库日期</th>
+                        <th class="px-3 py-2.5 text-left font-medium">供应商</th>
+                        <th class="px-3 py-2.5 text-left font-medium">采购单号</th>
+                        <th class="px-3 py-2.5 text-center font-medium">资产数量</th>
+                        <th class="px-3 py-2.5 text-right font-medium">总金额</th>
+                        <th class="px-3 py-2.5 text-left font-medium">经办人</th>
+                        <th class="px-3 py-2.5 text-left font-medium">验收人</th>
+                        <th class="px-3 py-2.5 text-left font-medium">状态</th>
+                        <th class="px-3 py-2.5 text-left font-medium">创建时间</th>
+                        <th class="px-3 py-2.5 text-center font-medium">操作</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    @forelse($intakes as $intake)
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3">
-                            <a href="{{ route('intakes.show', $intake) }}" class="text-blue-600 hover:underline font-mono">{{ $intake->order_no ?? '（草稿）' }}</a>
+                    @forelse($intakes as $idx => $intake)
+                    <tr class="hover:bg-gray-50/50">
+                        <td class="px-3 py-2.5 text-xs text-gray-400">{{ ($intakes->currentPage() - 1) * $intakes->perPage() + $idx + 1 }}</td>
+                        <td class="px-3 py-2.5">
+                            <a href="{{ route('intakes.show', $intake) }}" class="text-blue-600 hover:underline font-mono font-medium">{{ $intake->order_no ?? '（草稿）' }}</a>
                         </td>
-                        <td class="px-4 py-3 text-gray-600">{{ $intake->intake_date?->format('Y-m-d') ?? '-' }}</td>
-                        <td class="px-4 py-3 text-gray-600">{{ $intake->supplier ?: '-' }}</td>
-                        <td class="px-4 py-3 text-center">{{ count($intake->draft_data['items'] ?? []) }}</td>
-                        <td class="px-4 py-3 text-right">{{ $intake->total_amount ? number_format($intake->total_amount, 2) : '-' }}</td>
-                        <td class="px-4 py-3 text-gray-600">{{ $intake->operator }}</td>
-                        <td class="px-4 py-3">
+                        <td class="px-3 py-2.5 text-gray-600">{{ $intake->intake_date?->format('Y-m-d') ?? '-' }}</td>
+                        <td class="px-3 py-2.5 text-gray-600">{{ $intake->supplier ?: '-' }}</td>
+                        <td class="px-3 py-2.5 text-gray-500 font-mono text-xs">{{ $intake->purchase_order_no ?: '-' }}</td>
+                        <td class="px-3 py-2.5 text-center">
+                            <span class="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 font-medium">{{ count($intake->draft_data['items'] ?? []) }}</span>
+                        </td>
+                        <td class="px-3 py-2.5 text-right font-mono">{{ $intake->total_amount ? number_format($intake->total_amount, 2) : '-' }}</td>
+                        <td class="px-3 py-2.5 text-gray-600">{{ $intake->operator }}</td>
+                        <td class="px-3 py-2.5 text-gray-600">{{ $intake->approver ?: '-' }}</td>
+                        <td class="px-3 py-2.5">
                             @if($intake->status === 'draft')
                                 <span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">草稿</span>
                             @elseif($intake->status === 'active')
@@ -77,12 +91,18 @@
                                 <span class="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-600">已作废</span>
                             @endif
                         </td>
-                        <td class="px-4 py-3 text-center">
-                            <a href="{{ route('intakes.show', $intake) }}" class="text-blue-600 hover:underline text-xs">查看</a>
+                        <td class="px-3 py-2.5 text-gray-400 text-xs">{{ $intake->created_at->format('Y-m-d H:i') }}</td>
+                        <td class="px-3 py-2.5 text-center">
+                            <div class="flex items-center justify-center gap-2 text-xs whitespace-nowrap">
+                                <a href="{{ route('intakes.show', $intake) }}" class="text-blue-600 hover:underline">查看</a>
+                                @if(auth()->user()->isAdmin() && $intake->status === 'draft')
+                                    <a href="{{ route('intakes.edit', $intake) }}" class="text-indigo-600 hover:underline">编辑</a>
+                                @endif
+                            </div>
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="8" class="px-4 py-12 text-center text-gray-400">暂无入库单</td></tr>
+                    <tr><td colspan="12" class="px-4 py-16 text-center text-gray-400">暂无入库单</td></tr>
                     @endforelse
                 </tbody>
             </table>
