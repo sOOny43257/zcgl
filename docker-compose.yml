@@ -1,0 +1,24 @@
+version: '3.8'
+
+# ============================================
+# 和平区税务局资产管理系统 - Docker 部署
+# 使用外置数据库，修改下面的连接信息
+# ============================================
+
+services:
+  app:
+    image: zcgl-app:latest
+    environment:
+      # ← 修改为你的外置数据库连接信息
+      DB_HOST: 192.168.1.100
+      DB_PORT: 3306
+      DB_DATABASE: zcgl
+      DB_USERNAME: root
+      DB_PASSWORD: your_password
+    volumes:
+      # ← 修改为你的持久化路径（备份文件存放处）
+      - /opt/zcgl/backups:/var/www/html/storage/backups
+    ports:
+      # ← 修改 Web 端口（格式：宿主机端口:容器端口）
+      - "80:80"
+    restart: unless-stopped
