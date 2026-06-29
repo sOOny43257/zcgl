@@ -384,7 +384,6 @@ class AssetController extends Controller
             }
             if (!empty($data['mac'])) {
                 if (!preg_match('/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/', $data['mac'])) { $errors[] = 'MAC格式不合法'; $fieldErrors['mac'] = 'MAC格式不合法'; }
-                elseif (Asset::where('mac', $data['mac'])->exists()) { $errors[] = 'MAC已存在'; $fieldErrors['mac'] = 'MAC已存在'; }
             }
 
             // 验证数据字典字段（接受中文名，转为编码）
@@ -398,6 +397,12 @@ class AssetController extends Controller
                         $data[$field] = $result['code']; // 转换为编码
                     }
                 }
+            }
+
+            // 跳过全空行
+            $businessFields = ['asset_code','financial_code','name','department','room','ip','mac','sn','brand','model','category','status','user','remarks'];
+            if (empty(array_filter(array_intersect_key($data, array_flip($businessFields))))) {
+                continue;
             }
 
             $data['_row'] = $rowNum;
@@ -432,46 +437,79 @@ class AssetController extends Controller
         $skipped = 0;
         $errors = [];
 
-        foreach ($request->rows as $i => $row) {
-            // IP/MAC 允许为空，但非空时验证格式
-            if (!empty($row['ip']) && !filter_var($row['ip'], FILTER_VALIDATE_IP)) {
-                $errors[] = "第" . ($i + 2) . "行: IP格式不合法"; $skipped++; continue;
-            }
-            if (!empty($row['mac']) && !preg_match('/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/', $row['mac'])) {
-                $errors[] = "第" . ($i + 2) . "行: MAC格式不合法"; $skipped++; continue;
-            }
-            if (!empty($row['mac']) && Asset::where('mac', $row['mac'])->exists()) { $errors[] = "第" . ($i + 2) . "行: MAC {$row['mac']} 已存在"; $skipped++; continue; }
+        // 字段长度限制（与 StoreAssetRequest 一致）
+        $lengthLimits = [
+            'asset_code' => 20, 'financial_code' => 50, 'name' => 200,
+            'department' => 100, 'room' => 50, 'ip' => 45, 'mac' => 17,
+            'sn' => 200, 'brand' => 100, 'model' => 100, 'category' => 50,
+            'status' => 20, 'user' => 100,
+        ];
 
-            // 验证并转换数据字典字段
-            foreach (['department' => 'department', 'category' => 'category', 'status' => 'status'] as $field => $type) {
-                if (!empty($row[$field])) {
-                    $result = $this->validateCodeField($row[$field], $type);
-                    if ($result['error']) {
-                        $errors[] = "第" . ($i + 2) . "行: " . $result['error'];
-                        $skipped++; continue 2;
-                    }
-                    $row[$field] = $result['code'];
+        \DB::transaction(function () use ($request, &$imported, &$skipped, &$errors, $lengthLimits) {
+            foreach ($request->rows as $i => $row) {
+                // 跳过全空行
+                $businessFields = ['asset_code','financial_code','name','department','room','ip','mac','sn','brand','model','category','status','user','remarks'];
+                if (empty(array_filter(array_intersect_key($row, array_flip($businessFields))))) {
+                    $skipped++; continue;
                 }
-            }
 
-            Asset::create([
-                'asset_code' => $row['asset_code'] ?? '',
-                'financial_code' => $row['financial_code'] ?? '',
-                'name' => $row['name'] ?? '',
-                'department' => $row['department'] ?? '',
-                'room' => $row['room'] ?? '',
-                'ip' => empty($row['ip']) ? null : $row['ip'],
-                'mac' => empty($row['mac']) ? null : $row['mac'],
-                'sn' => $row['sn'] ?? '',
-                'brand' => $row['brand'] ?? '',
-                'model' => $row['model'] ?? '',
-                'category' => $row['category'] ?: '台式计算机（非国产）',
-                'status' => $row['status'] ?: '在用',
-                'user' => $row['user'] ?? '',
-                'remarks' => $row['remarks'] ?? '',
-            ]);
-            $imported++;
-        }
+                // asset_code 唯一性校验
+                if (!empty($row['asset_code']) && Asset::where('asset_code', $row['asset_code'])->exists()) {
+                    $errors[] = "第" . ($i + 2) . "行: 自有编号 {$row['asset_code']} 已存在";
+                    $skipped++; continue;
+                }
+
+                // 字段长度校验
+                $lengthFailed = false;
+                foreach ($lengthLimits as $field => $max) {
+                    if (isset($row[$field]) && mb_strlen($row[$field]) > $max) {
+                        $errors[] = "第" . ($i + 2) . "行: {$field} 超过 {$max} 字符限制";
+                        $skipped++;
+                        $lengthFailed = true;
+                        break;
+                    }
+                }
+                if ($lengthFailed) continue;
+
+                // IP/MAC 允许为空，但非空时验证格式
+                if (!empty($row['ip']) && !filter_var($row['ip'], FILTER_VALIDATE_IP)) {
+                    $errors[] = "第" . ($i + 2) . "行: IP格式不合法"; $skipped++; continue;
+                }
+                if (!empty($row['mac']) && !preg_match('/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/', $row['mac'])) {
+                    $errors[] = "第" . ($i + 2) . "行: MAC格式不合法"; $skipped++; continue;
+                }
+
+                // 验证并转换数据字典字段
+                foreach (['department' => 'department', 'category' => 'category', 'status' => 'status'] as $field => $type) {
+                    if (!empty($row[$field])) {
+                        $result = $this->validateCodeField($row[$field], $type);
+                        if ($result['error']) {
+                            $errors[] = "第" . ($i + 2) . "行: " . $result['error'];
+                            $skipped++; continue 2;
+                        }
+                        $row[$field] = $result['code'];
+                    }
+                }
+
+                Asset::create([
+                    'asset_code' => $row['asset_code'] ?? '',
+                    'financial_code' => $row['financial_code'] ?? '',
+                    'name' => $row['name'] ?? '',
+                    'department' => $row['department'] ?? '',
+                    'room' => $row['room'] ?? '',
+                    'ip' => empty($row['ip']) ? null : $row['ip'],
+                    'mac' => empty($row['mac']) ? null : $row['mac'],
+                    'sn' => $row['sn'] ?? '',
+                    'brand' => $row['brand'] ?? '',
+                    'model' => $row['model'] ?? '',
+                    'category' => $row['category'] ?: '台式计算机（非国产）',
+                    'status' => $row['status'] ?: '在用',
+                    'user' => $row['user'] ?? '',
+                    'remarks' => $row['remarks'] ?? '',
+                ]);
+                $imported++;
+            }
+        });
 
         return response()->json([
             'success' => true,
@@ -487,17 +525,24 @@ class AssetController extends Controller
     {
         $request->validate(['csv_file' => 'required|file|mimes:csv,txt']);
 
+        $path = $request->file('csv_file')->getRealPath();
+
+        // 自动检测编码并转为 UTF-8
+        $content = file_get_contents($path);
+        $encoding = mb_detect_encoding($content, ['UTF-8', 'GBK', 'GB2312', 'ASCII'], true);
+        if ($encoding && $encoding !== 'UTF-8') {
+            $content = mb_convert_encoding($content, 'UTF-8', $encoding);
+            $path = sys_get_temp_dir() . '/utf8_' . uniqid() . '.csv';
+            file_put_contents($path, $content);
+        }
+
         $result = $importer->import(
-            $request->file('csv_file')->getRealPath(),
+            $path,
             ['ip', 'mac'],
             function ($data, $rowNum) {
                 if (empty($data['ip']) || empty($data['mac'])) {
                     return false; // 跳过
                 }
-                if (Asset::where('mac', $data['mac'])->exists()) {
-                    return "第{$rowNum}行: MAC {$data['mac']} 已存在";
-                }
-
                 Asset::create([
                     'name' => $data['name'] ?? '',
                     'department' => $data['department'] ?? '',
