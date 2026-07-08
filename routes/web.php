@@ -154,6 +154,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/print-templates/{printTemplate}/edit', [\App\Http\Controllers\PrintTemplateController::class, 'edit'])->name('print-templates.edit');
         Route::put('/print-templates/{printTemplate}', [\App\Http\Controllers\PrintTemplateController::class, 'update'])->name('print-templates.update');
         Route::post('/print-templates/{printTemplate}/reset', [\App\Http\Controllers\PrintTemplateController::class, 'resetToDefault'])->name('print-templates.reset');
+
+        // 统一打印
+        Route::get('/print/{module}/{id}', [\App\Http\Controllers\PrintController::class, 'print'])->name('print.universal');
         // 系统管理
         Route::get('/system', [SystemController::class, 'index'])->name('system.index');
         Route::post('/system/init', [SystemController::class, 'init'])->name('system.init');

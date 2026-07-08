@@ -9,15 +9,12 @@ class PrintTemplateSeeder extends Seeder
 {
     public function run(): void
     {
-        PrintTemplate::updateOrCreate(
-            ['module' => 'intake'],
-            [
-                'name' => '资产入库单打印模板',
-                'orientation' => 'landscape',
-                'page_size' => 'A4',
-                'config' => PrintTemplate::defaultConfig('intake'),
-                'is_active' => true,
-            ]
-        );
+        $modules = ['intake', 'transfer', 'borrow', 'disposal', 'consumable_intake', 'consumable_usage', 'consumable_inventory'];
+
+        foreach ($modules as $module) {
+            if (!PrintTemplate::where('module', $module)->exists()) {
+                PrintTemplate::createDefault($module);
+            }
+        }
     }
 }

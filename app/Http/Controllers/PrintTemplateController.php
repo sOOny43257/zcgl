@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PrintTemplate;
+use App\Services\PrintService;
 use Illuminate\Http\Request;
 
 class PrintTemplateController extends Controller
@@ -10,30 +11,16 @@ class PrintTemplateController extends Controller
     public function index()
     {
         $templates = PrintTemplate::orderBy('module')->get();
+        $moduleLabels = collect(PrintService::moduleMeta())->map(fn($m) => $m['label'])->toArray();
 
-        return view('print-templates.index', compact('templates'));
+        return view('print-templates.index', compact('templates', 'moduleLabels'));
     }
 
     public function edit(PrintTemplate $printTemplate)
     {
-        $pageMetaOptions = [
-            '入库日期', '供应商', '采购单号', '总金额', '经办人', '验收人', '创建时间', '备注', '入库说明',
-        ];
-
-        $columnOptions = [
-            'asset_code' => '资产编号',
-            'financial_code' => '财务编号',
-            'name' => '资产名称',
-            'category' => '类别',
-            'brand' => '品牌',
-            'model' => '规格型号',
-            'sn' => 'SN序列号',
-            'department' => '部门',
-            'room' => '房间号',
-            'user' => '使用人',
-            'purchase_price' => '单价',
-            'remarks' => '备注',
-        ];
+        $module = $printTemplate->module;
+        $pageMetaOptions = PrintService::pageMetaOptions($module);
+        $columnOptions = PrintService::columnOptions($module);
 
         return view('print-templates.edit', compact('printTemplate', 'pageMetaOptions', 'columnOptions'));
     }
@@ -72,6 +59,7 @@ class PrintTemplateController extends Controller
     {
         $printTemplate->update([
             'config' => PrintTemplate::defaultConfig($printTemplate->module),
+            'name' => PrintService::moduleLabel($printTemplate->module) . '打印模板',
             'updated_by' => $request->user()->id,
         ]);
 

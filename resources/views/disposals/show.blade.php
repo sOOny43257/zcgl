@@ -22,6 +22,9 @@
                 </button>
                 @endif
                 <a href="{{ route('disposals.index') }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; 返回列表</a>
+            @if($disposal->order_no)
+                <a href="{{ route('print.universal', ['module' => 'disposal', 'id' => $disposal->id]) }}" target="_blank" class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">打印</a>
+            @endif
             </div>
         </div>
     </x-slot>

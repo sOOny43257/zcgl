@@ -17,6 +17,7 @@
                     </form>
                     <a href="{{ route('consumable-intakes.edit', $order) }}" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700">编辑</a>
                 @endif
+                <a href="{{ route('print.universal', ['module' => 'consumable_intake', 'id' => $order->id]) }}" target="_blank" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700">打印</a>
                 <a href="{{ route('consumable-intakes.index') }}" class="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-200">返回列表</a>
             </div>
         </div>
