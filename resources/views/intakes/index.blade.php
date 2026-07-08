@@ -98,6 +98,9 @@
                                 @if(auth()->user()->isAdmin() && $intake->status === 'draft')
                                     <a href="{{ route('intakes.edit', $intake) }}" class="text-indigo-600 hover:underline">编辑</a>
                                 @endif
+                                @if($intake->status === 'active')
+                                    <a href="{{ route('intakes.print', $intake) }}" target="_blank" class="text-green-600 hover:underline">打印</a>
+                                @endif
                             </div>
                         </td>
                     </tr>

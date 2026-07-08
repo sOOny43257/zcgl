@@ -88,7 +88,7 @@ class AssetController extends Controller
         $query = $this->applyFilters($query, $request);
         $this->applySort($query, $request);
 
-        $perPage = min((int) $request->get('per_page', 20), 100);
+        $perPage = min((int) $request->get("per_page", 20), 500);
         $assets = $query->paginate($perPage)->withQueryString();
 
         // 附加中文名

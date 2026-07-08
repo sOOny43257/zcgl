@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Asset;
 use App\Models\AssetIntake;
 use App\Models\DepartmentCode;
+use App\Models\PrintTemplate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -223,6 +224,7 @@ class AssetIntakeController extends Controller
     public function show(AssetIntake $intake)
     {
         $items = $intake->draft_data['items'] ?? [];
+
         $catMap = DepartmentCode::type('category')->pluck('name', 'code');
         $deptMap = DepartmentCode::type('department')->pluck('name', 'code');
 
@@ -234,23 +236,46 @@ class AssetIntakeController extends Controller
         return view('intakes.show', compact('intake', 'items', 'catMap', 'deptMap', 'createdAssets'));
     }
 
-    public function destroy(AssetIntake $intake)
+    public function print(AssetIntake $intake)
     {
-        $this->deleteAttachmentFiles($intake);
-        $intake->delete();
-        return redirect()->route('intakes.index')->with('success', '入库单已删除');
+        $items = $intake->draft_data['items'] ?? [];
+
+        $catMap = DepartmentCode::type('category')->pluck('name', 'code');
+        $deptMap = DepartmentCode::type('department')->pluck('name', 'code');
+
+        $createdAssets = collect();
+        if ($intake->status === 'active') {
+            $createdAssets = $intake->assets()->get();
+        }
+
+        $printTemplate = PrintTemplate::forModule('intake') ?? PrintTemplate::createDefault('intake');
+
+        return view('intakes.print', compact('intake', 'items', 'catMap', 'deptMap', 'createdAssets', 'printTemplate'));
     }
 
     public function cancel(Request $request)
     {
-        $intake = AssetIntake::findOrFail($request->id);
-        if ($intake->status === 'cancelled') {
-            return back()->with('error', '该入库单已经作废');
+        $intake = AssetIntake::findOrFail($request->input('id'));
+
+        if ($intake->status !== 'active') {
+            return back()->with('error', '只能作废已生效的入库单');
         }
 
         $intake->update(['status' => 'cancelled']);
 
         return redirect()->route('intakes.index')->with('success', '入库单已作废（已入库的资产不受影响）');
+    }
+
+    public function destroy(AssetIntake $intake)
+    {
+        if ($intake->status === 'active') {
+            return back()->with('error', '已生效的入库单不能直接删除');
+        }
+
+        $this->deleteAttachmentFiles($intake);
+        $intake->delete();
+
+        return redirect()->route('intakes.index')->with('success', '入库单已删除');
     }
 
     private function deleteAttachmentFiles(AssetIntake $intake): void

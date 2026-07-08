@@ -50,5 +50,8 @@ class DatabaseSeeder extends Seeder
         foreach ($assets as $data) {
             Asset::create($data);
         }
+
+        // 打印模板
+        $this->call(PrintTemplateSeeder::class);
     }
 }

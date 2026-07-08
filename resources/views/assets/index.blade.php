@@ -103,6 +103,27 @@
             <!-- 工具栏: 列设置 + 计数 -->
             <div class="px-4 py-2 border-b bg-gray-50/50 flex items-center justify-between">
                 <span class="text-xs text-gray-500">共 <strong class="text-blue-600" x-text="total"></strong> 条</span>
+                <div class="flex items-center gap-1.5">
+                    <span class="text-xs text-gray-500">每页</span>
+                    <div class="relative" @click.away="perPageMenuOpen = false">
+                        <button @click="perPageMenuOpen = !perPageMenuOpen" class="flex items-center gap-1 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-white min-w-[52px] justify-between">
+                            <span x-text="perPage"></span>
+                            <svg class="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+                        <div x-show="perPageMenuOpen" x-cloak class="absolute left-0 mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-50 p-2 space-y-1">
+                            <template x-for="opt in perPageOptions" :key="opt">
+                                <button @click="setPerPage(opt)" class="w-full text-left px-2 py-1.5 rounded-lg text-xs hover:bg-gray-50" :class="perPage === opt ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'" x-text="opt + ' 条/页'"></button>
+                            </template>
+                            <div class="border-t pt-1.5 mt-1">
+                                <div class="flex items-center gap-1">
+                                    <input type="number" x-model.number="customPerPage" @keydown.enter="applyCustomPerPage()" min="1" max="500" placeholder="自定义"
+                                           class="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                    <button @click="applyCustomPerPage()" class="px-2 py-1 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 whitespace-nowrap">确定</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="relative" @click.away="colMenuOpen = false">
                     <button @click="colMenuOpen = !colMenuOpen" class="flex items-center px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-white">
                         <svg class="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
@@ -137,7 +158,7 @@
                     <tbody class="divide-y divide-gray-50">
                         <template x-for="(a, idx) in assets" :key="a.id">
                             <tr class="hover:bg-gray-50/50 text-sm">
-                                <td class="px-3 py-2 text-center text-xs text-gray-400" x-text="(page-1)*20 + idx + 1"></td>
+                                <td class="px-3 py-2 text-center text-xs text-gray-400" x-text="(page-1)*perPage + idx + 1"></td>
                                 <template x-for="col in columns" :key="col.field">
                                     <td x-show="col.visible" class="px-3 py-2">
                                         <template x-if="col.field === 'name'">
@@ -187,9 +208,9 @@
                 </table>
             </div>
 
-            <div class="px-4 py-3 border-t flex items-center justify-between" x-show="lastPage > 1">
+            <div class="px-4 py-3 border-t flex items-center justify-between" x-show="total > 0">
                 <span class="text-xs text-gray-500">共 <span x-text="total"></span> 条</span>
-                <div class="flex gap-1">
+                <div class="flex gap-1" x-show="lastPage > 1">
                     <button @click="goPage(1)" :disabled="page <= 1" class="px-3 py-1.5 border rounded-lg text-xs disabled:opacity-30 hover:bg-gray-50">首页</button>
                     <button @click="goPage(page - 1)" :disabled="page <= 1" class="px-3 py-1.5 border rounded-lg text-xs disabled:opacity-30 hover:bg-gray-50">‹</button>
                     <span class="px-3 py-1.5 text-xs text-gray-600" x-text="page + ' / ' + lastPage"></span>
@@ -214,6 +235,10 @@ document.addEventListener('alpine:init', () => {
         sortField: 'id',
         sortDir: 'desc',
         colMenuOpen: false,
+        perPage: 20,
+        perPageOptions: [20, 50, 100, 200],
+        perPageMenuOpen: false,
+        customPerPage: null,
 
         showMoreFilters: false,
         filterDefs: [
@@ -256,6 +281,11 @@ document.addEventListener('alpine:init', () => {
 
         async init() {
             // 恢复列设置
+            // 恢复每页条数
+            try {
+                const savedPerPage = localStorage.getItem('assetPerPage');
+                if (savedPerPage) this.perPage = parseInt(savedPerPage) || 20;
+            } catch(e) {}
             try {
                 const saved = localStorage.getItem('assetColumns');
                 if (saved) {
@@ -318,7 +348,7 @@ document.addEventListener('alpine:init', () => {
 
         async load() {
             this.loading = true;
-            const params = new URLSearchParams({ page: this.page, search: this.search, sort: this.sortField, direction: this.sortDir });
+            const params = new URLSearchParams({ page: this.page, search: this.search, sort: this.sortField, direction: this.sortDir, per_page: this.perPage });
             this.filterDefs.forEach(fd => {
                 if (fd.values.length) fd.values.forEach(v => params.append(fd.name + '[]', v));
             });
@@ -361,6 +391,29 @@ document.addEventListener('alpine:init', () => {
             if (p >= 1 && p <= this.lastPage) { this.page = p; this.load(); }
         },
 
+        setPerPage(val) {
+            this.perPage = val;
+            this.page = 1;
+            this.perPageMenuOpen = false;
+            this.savePerPage();
+            this.load();
+        },
+
+        applyCustomPerPage() {
+            if (this.customPerPage && this.customPerPage >= 1 && this.customPerPage <= 500) {
+                this.perPage = this.customPerPage;
+                this.page = 1;
+                this.perPageMenuOpen = false;
+                this.savePerPage();
+                this.load();
+            } else {
+                this.customPerPage = null;
+            }
+        },
+
+        savePerPage() {
+            localStorage.setItem('assetPerPage', this.perPage);
+        },
         resetAll() {
             this.search = '';
             this.filterDefs.forEach(f => { f.values = []; f.open = false; });

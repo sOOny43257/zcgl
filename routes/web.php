@@ -92,6 +92,7 @@ Route::middleware('auth')->group(function () {
 
     // 资产入库（所有登录用户可查看列表和详情）
     Route::get('/intakes', [AssetIntakeController::class, 'index'])->name('intakes.index');
+    Route::get('/intakes/{intake}/print', [AssetIntakeController::class, 'print'])->name('intakes.print');
 
     // 资产报废（所有登录用户可查看列表和详情）
     Route::get('/disposals', [AssetDisposalController::class, 'index'])->name('disposals.index');
@@ -148,6 +149,11 @@ Route::middleware('auth')->group(function () {
         Route::post('/updates/upload', [UpdateController::class, 'upload'])->name('updates.upload');
         Route::post('/updates/rollback', [UpdateController::class, 'rollback'])->name('updates.rollback');
 
+        // 打印模板管理
+        Route::get('/print-templates', [\App\Http\Controllers\PrintTemplateController::class, 'index'])->name('print-templates.index');
+        Route::get('/print-templates/{printTemplate}/edit', [\App\Http\Controllers\PrintTemplateController::class, 'edit'])->name('print-templates.edit');
+        Route::put('/print-templates/{printTemplate}', [\App\Http\Controllers\PrintTemplateController::class, 'update'])->name('print-templates.update');
+        Route::post('/print-templates/{printTemplate}/reset', [\App\Http\Controllers\PrintTemplateController::class, 'resetToDefault'])->name('print-templates.reset');
         // 系统管理
         Route::get('/system', [SystemController::class, 'index'])->name('system.index');
         Route::post('/system/init', [SystemController::class, 'init'])->name('system.init');
