@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Asset;
 use App\Models\AssetIntake;
 use App\Models\AssetDisposal;
+use App\Models\Consumable;
 use App\Models\User;
 
 class DashboardService
@@ -37,6 +38,15 @@ class DashboardService
             ->where('disposal_date', '>=', $monthStart)
             ->count();
 
-        return compact('totalAssets', 'deptCount', 'statusCounts', 'catCounts', 'depts', 'intakeThisMonth', 'disposalThisMonth');
+        // 耗材统计
+        $consumableCount = Consumable::count();
+        $consumableLowStock = Consumable::lowStock()->count();
+        $consumableLowStockItems = Consumable::lowStock()->orderBy('current_stock')->limit(5)->get();
+
+        return compact(
+            'totalAssets', 'deptCount', 'statusCounts', 'catCounts', 'depts',
+            'intakeThisMonth', 'disposalThisMonth',
+            'consumableCount', 'consumableLowStock', 'consumableLowStockItems'
+        );
     }
 }

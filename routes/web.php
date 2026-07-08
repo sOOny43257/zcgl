@@ -181,6 +181,45 @@ Route::middleware('auth')->group(function () {
         Route::delete('/codes/{code}', [DepartmentCodeController::class, 'destroy'])->name('codes.destroy');
         Route::get('/codes/import/form', [DepartmentCodeController::class, 'importForm'])->name('codes.importForm');
         Route::post('/codes/import', [DepartmentCodeController::class, 'import'])->name('codes.import');
+
+        // ========== 耗材管理模块 ==========
+        // 耗材主数据
+        Route::get('/consumables', [\App\Http\Controllers\ConsumableController::class, 'index'])->name('consumables.index');
+        Route::get('/consumables/create', [\App\Http\Controllers\ConsumableController::class, 'create'])->name('consumables.create');
+        Route::post('/consumables', [\App\Http\Controllers\ConsumableController::class, 'store'])->name('consumables.store');
+        Route::get('/consumables/search-json', [\App\Http\Controllers\ConsumableController::class, 'searchJson'])->name('consumables.searchJson');
+        Route::get('/consumables/{consumable}', [\App\Http\Controllers\ConsumableController::class, 'show'])->name('consumables.show');
+        Route::get('/consumables/{consumable}/edit', [\App\Http\Controllers\ConsumableController::class, 'edit'])->name('consumables.edit');
+        Route::put('/consumables/{consumable}', [\App\Http\Controllers\ConsumableController::class, 'update'])->name('consumables.update');
+        Route::delete('/consumables/{consumable}', [\App\Http\Controllers\ConsumableController::class, 'destroy'])->name('consumables.destroy');
+
+        // 耗材入库
+        Route::get('/consumable-intakes', [\App\Http\Controllers\ConsumableIntakeController::class, 'index'])->name('consumable-intakes.index');
+        Route::get('/consumable-intakes/create', [\App\Http\Controllers\ConsumableIntakeController::class, 'create'])->name('consumable-intakes.create');
+        Route::post('/consumable-intakes', [\App\Http\Controllers\ConsumableIntakeController::class, 'store'])->name('consumable-intakes.store');
+        Route::get('/consumable-intakes/{consumable_intake}', [\App\Http\Controllers\ConsumableIntakeController::class, 'show'])->name('consumable-intakes.show');
+        Route::get('/consumable-intakes/{consumable_intake}/edit', [\App\Http\Controllers\ConsumableIntakeController::class, 'edit'])->name('consumable-intakes.edit');
+        Route::put('/consumable-intakes/{consumable_intake}', [\App\Http\Controllers\ConsumableIntakeController::class, 'update'])->name('consumable-intakes.update');
+        Route::delete('/consumable-intakes/{consumable_intake}', [\App\Http\Controllers\ConsumableIntakeController::class, 'destroy'])->name('consumable-intakes.destroy');
+        Route::post('/consumable-intakes/{consumable_intake}/complete', [\App\Http\Controllers\ConsumableIntakeController::class, 'complete'])->name('consumable-intakes.complete');
+        Route::post('/consumable-intakes/{consumable_intake}/cancel', [\App\Http\Controllers\ConsumableIntakeController::class, 'cancel'])->name('consumable-intakes.cancel');
+
+        // 耗材领用
+        Route::get('/consumable-usages', [\App\Http\Controllers\ConsumableUsageController::class, 'index'])->name('consumable-usages.index');
+        Route::get('/consumable-usages/create', [\App\Http\Controllers\ConsumableUsageController::class, 'create'])->name('consumable-usages.create');
+        Route::post('/consumable-usages', [\App\Http\Controllers\ConsumableUsageController::class, 'store'])->name('consumable-usages.store');
+        Route::get('/consumable-usages/{consumable_usage}', [\App\Http\Controllers\ConsumableUsageController::class, 'show'])->name('consumable-usages.show');
+
+        // 耗材盘点
+        Route::get('/consumable-inventories', [\App\Http\Controllers\ConsumableInventoryController::class, 'index'])->name('consumable-inventories.index');
+        Route::get('/consumable-inventories/create', [\App\Http\Controllers\ConsumableInventoryController::class, 'create'])->name('consumable-inventories.create');
+        Route::post('/consumable-inventories', [\App\Http\Controllers\ConsumableInventoryController::class, 'store'])->name('consumable-inventories.store');
+        Route::get('/consumable-inventories/{consumable_inventory}', [\App\Http\Controllers\ConsumableInventoryController::class, 'show'])->name('consumable-inventories.show');
+        Route::post('/consumable-inventories/{consumable_inventory}/settle', [\App\Http\Controllers\ConsumableInventoryController::class, 'settle'])->name('consumable-inventories.settle');
+
+        // 耗材报表
+        Route::get('/consumable-reports', [\App\Http\Controllers\ConsumableReportController::class, 'index'])->name('consumable-reports.index');
+        Route::get('/consumable-reports/export', [\App\Http\Controllers\ConsumableReportController::class, 'export'])->name('consumable-reports.export');
     });
 
     // 资产详情 — 必须放在所有字面量路由之后

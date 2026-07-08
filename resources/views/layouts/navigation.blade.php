@@ -59,6 +59,40 @@
         </a>
         @endif
 
+        <!-- 耗材管理（二级菜单） -->
+        @php $consumableActive = request()->routeIs('consumables.*') || request()->routeIs('consumable-intakes.*') || request()->routeIs('consumable-usages.*') || request()->routeIs('consumable-inventories.*') || request()->routeIs('consumable-reports.*'); @endphp
+        <div x-data="{ consumableOpen: {{ $consumableActive ? 'true' : 'false' }} }">
+            <a href="#"
+               @click.prevent="consumableOpen = !consumableOpen"
+               class="flex items-center space-x-3 px-3 py-2.5 rounded-2xl transition-all duration-200 cursor-pointer {{ $consumableActive ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/8' }}">
+                <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                <span x-show="!collapsed" class="text-sm font-medium whitespace-nowrap flex-1">耗材管理</span>
+                <svg x-show="!collapsed" class="h-3 w-3 shrink-0 transition-transform opacity-50" :class="consumableOpen ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+            <div x-show="!collapsed && consumableOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-1" x-transition:enter-end="opacity-100 translate-y-0" class="ml-4 border-l border-white/10 pl-3 space-y-0.5 mt-0.5">
+                <a href="{{ route('consumables.index') }}"
+                   class="flex items-center space-x-2 px-3 py-2 rounded-2xl transition-all duration-200 text-sm {{ request()->routeIs('consumables.*') ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/8' }}">
+                    <span class="whitespace-nowrap text-xs">耗材列表</span>
+                </a>
+                <a href="{{ route('consumable-intakes.index') }}"
+                   class="flex items-center space-x-2 px-3 py-2 rounded-2xl transition-all duration-200 text-sm {{ request()->routeIs('consumable-intakes.*') ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/8' }}">
+                    <span class="whitespace-nowrap text-xs">入库管理</span>
+                </a>
+                <a href="{{ route('consumable-usages.index') }}"
+                   class="flex items-center space-x-2 px-3 py-2 rounded-2xl transition-all duration-200 text-sm {{ request()->routeIs('consumable-usages.*') ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/8' }}">
+                    <span class="whitespace-nowrap text-xs">领用管理</span>
+                </a>
+                <a href="{{ route('consumable-inventories.index') }}"
+                   class="flex items-center space-x-2 px-3 py-2 rounded-2xl transition-all duration-200 text-sm {{ request()->routeIs('consumable-inventories.*') ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/8' }}">
+                    <span class="whitespace-nowrap text-xs">盘点管理</span>
+                </a>
+                <a href="{{ route('consumable-reports.index') }}"
+                   class="flex items-center space-x-2 px-3 py-2 rounded-2xl transition-all duration-200 text-sm {{ request()->routeIs('consumable-reports.*') ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/8' }}">
+                    <span class="whitespace-nowrap text-xs">耗材报表</span>
+                </a>
+            </div>
+        </div>
+
         <!-- 借用管理（二级菜单） -->
         @php $borrowActive = request()->routeIs('borrows.*'); @endphp
         <div x-data="{ borrowOpen: {{ $borrowActive ? 'true' : 'false' }} }">

@@ -9,7 +9,7 @@ use Illuminate\Validation\Rule;
 
 class DepartmentCodeController extends Controller
 {
-    const TYPES = ['department' => '部门编码', 'category' => '类别编码', 'status' => '状态编码'];
+    const TYPES = ['department' => '部门编码', 'category' => '类别编码', 'status' => '状态编码', 'hc_category' => '耗材分类', 'hc_unit' => '耗材单位', 'supplier' => '供应商'];
 
     public function index(Request $request)
     {
@@ -41,7 +41,7 @@ class DepartmentCodeController extends Controller
     public function store(Request $request)
     {
         $rules = [
-            'type' => 'required|in:department,category,status',
+            'type' => 'required|in:department,category,status,hc_category,hc_unit,supplier',
             'name' => 'required|string|max:100',
         ];
 
@@ -114,7 +114,7 @@ class DepartmentCodeController extends Controller
     {
         $request->validate([
             'csv_file' => 'required|file|mimes:csv,txt',
-            'type' => 'required|in:department,category,status',
+            'type' => 'required|in:department,category,status,hc_category,hc_unit,supplier',
         ]);
 
         $type = $request->type;

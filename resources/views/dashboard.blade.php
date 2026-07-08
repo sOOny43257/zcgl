@@ -61,6 +61,48 @@
         </a>
     </div>
 
+    <!-- 耗材库存预警 -->
+    @if(($consumableLowStock ?? 0) > 0)
+    <div class="mb-6">
+        <a href="{{ route('consumables.index', ['low_stock' => '1']) }}" class="block bg-gradient-to-br from-amber-50 to-orange-50 rounded-3xl p-5 shadow-sm border border-amber-200/50 hover:shadow-md transition-shadow">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 bg-amber-500/20 rounded-2xl flex items-center justify-center mr-3">
+                        <svg class="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-amber-800">耗材库存预警</p>
+                        <p class="text-xs text-amber-600">{{ $consumableLowStock }} 种耗材库存不足</p>
+                    </div>
+                </div>
+                <span class="text-xs text-amber-600 font-medium">查看全部 →</span>
+            </div>
+            <div class="space-y-2">
+                @foreach($consumableLowStockItems as $item)
+                <div class="flex items-center justify-between bg-white/60 rounded-xl px-3 py-2">
+                    <span class="text-sm text-gray-700">{{ $item->name }}</span>
+                    <span class="text-sm font-medium text-red-600">库存: {{ $item->current_stock }} / 阈值: {{ $item->min_stock }}</span>
+                </div>
+                @endforeach
+            </div>
+        </a>
+    </div>
+    @else
+    <div class="grid grid-cols-1 gap-4 mb-6">
+        <a href="{{ route('consumables.index') }}" class="card-hover bg-gradient-to-br from-teal-50 to-teal-100/50 rounded-3xl p-5 shadow-sm border border-teal-200/50 group">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-teal-600 font-medium">耗材管理</p>
+                    <p class="text-2xl font-bold text-teal-800 mt-1">{{ $consumableCount ?? 0 }} <span class="text-sm font-normal text-teal-500">种耗材</span></p>
+                </div>
+                <div class="w-12 h-12 bg-teal-500/20 rounded-2xl flex items-center justify-center">
+                    <svg class="h-6 w-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                </div>
+            </div>
+        </a>
+    </div>
+    @endif
+
     <!-- 图表 + 部门 + 动态 -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- 资产分类环图 -->

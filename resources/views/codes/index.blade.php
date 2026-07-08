@@ -17,7 +17,7 @@
         <!-- 类型标签 -->
         <div class="border-b">
             <nav class="flex space-x-1 px-4 pt-3">
-                @foreach(['department' => '部门编码', 'category' => '类别编码', 'status' => '状态编码'] as $key => $label)
+                @foreach(['department' => '部门编码', 'category' => '类别编码', 'status' => '状态编码', 'hc_category' => '耗材分类', 'hc_unit' => '耗材单位', 'supplier' => '供应商'] as $key => $label)
                 <a href="{{ route('codes.index', ['type' => $key]) }}"
                    class="px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors {{ $currentType == $key ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700' }}">
                     {{ $label }}
