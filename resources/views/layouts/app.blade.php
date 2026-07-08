@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="base-url" content="{{ url('/') }}">
     <title>{{ config('app.name', '资产管理系统') }}</title>
     <script defer src="{{ asset('vendor/alpine.min.js') }}"></script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])

@@ -141,6 +141,7 @@
 
     <script>
     function disposalAssets() {
+        const baseUrl = document.querySelector('meta[name="base-url"]')?.content || '';
         return {
             showPicker: true,
             searchQ: '',
@@ -151,7 +152,7 @@
                 @if($preselectIds)
                 const ids = '{{ $preselectIds }}'.split(',').filter(Boolean);
                 if (ids.length) {
-                    fetch('/assets/json?ids=' + ids.join(','))
+                    fetch(baseUrl + '/assets/json?ids=' + ids.join(','))
                         .then(r => r.json())
                         .then(d => { this.selectedAssets = d.data || []; });
                 }
@@ -159,7 +160,7 @@
             },
             async searchAssets() {
                 const q = this.searchQ.trim();
-                const url = q ? '/assets/search?q=' + encodeURIComponent(q) : '/assets/json?per_page=50';
+                const url = q ? baseUrl + '/assets/search?q=' + encodeURIComponent(q) : baseUrl + '/assets/json?per_page=50';
                 const res = await fetch(url);
                 const data = await res.json();
                 this.searchResults = Array.isArray(data) ? data : (data.data || []);

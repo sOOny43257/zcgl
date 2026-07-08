@@ -147,7 +147,7 @@
                 // Load pre-selected assets from disposal draft
                 const ids = @json(($disposal->draft_data['asset_ids'] ?? []));
                 if (ids.length) {
-                    fetch('/assets/json?ids=' + ids.join(','))
+                    fetch(baseUrl + '/assets/json?ids=' + ids.join(','))
                         .then(r => r.json())
                         .then(d => { this.selectedAssets = d.data || []; });
                 }
