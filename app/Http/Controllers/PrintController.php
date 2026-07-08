@@ -44,17 +44,15 @@ class PrintController extends Controller
     {
         $intake = AssetIntake::findOrFail($id);
         $assets = $intake->assets;
-        $catMap = DepartmentCode::type('category')->pluck('name', 'code');
-        $deptMap = DepartmentCode::type('department')->pluck('name', 'code');
 
         $rows = $assets->map(fn($a) => [
             'asset_code' => $a->asset_code,
             'name' => $a->name,
-            'category' => $catMap[$a->category] ?? $a->category,
+            'category' => DepartmentCode::resolveName('category', $a->category),
             'brand' => $a->brand ?? '-',
             'model' => $a->model ?? '-',
             'sn' => $a->sn ?? '-',
-            'department' => $deptMap[$a->department] ?? $a->department,
+            'department' => DepartmentCode::resolveName('department', $a->department),
             'room' => $a->room ?? '-',
             'user' => $a->user ?? '-',
             'purchase_price' => $a->purchase_price ? number_format($a->purchase_price, 2) : '-',
@@ -82,19 +80,18 @@ class PrintController extends Controller
     {
         $order = TransferOrder::findOrFail($id);
         $asset = Asset::find($order->asset_id);
-        $deptMap = DepartmentCode::type('department')->pluck('name', 'code');
 
         $rows = [];
         if ($asset) {
             $rows[] = [
                 'asset_code' => $asset->asset_code,
                 'name' => $asset->name,
-                'category' => $asset->category,
+                'category' => DepartmentCode::resolveName('category', $asset->category),
                 'brand' => $asset->brand ?? '-',
                 'model' => $asset->model ?? '-',
                 'sn' => $asset->sn ?? '-',
-                'from_dept' => $deptMap[$order->from_dept] ?? $order->from_dept ?? '-',
-                'to_dept' => $deptMap[$order->to_dept] ?? $order->to_dept ?? '-',
+                'from_dept' => DepartmentCode::resolveName('department', $order->from_dept),
+                'to_dept' => DepartmentCode::resolveName('department', $order->to_dept),
                 'room' => $asset->room ?? '-',
             ];
         }
@@ -103,8 +100,8 @@ class PrintController extends Controller
             'orderNo' => $order->order_no,
             'metaValues' => [
                 '调拨日期' => $order->created_at?->format('Y-m-d'),
-                '调出部门' => $deptMap[$order->from_dept] ?? $order->from_dept,
-                '调入部门' => $deptMap[$order->to_dept] ?? $order->to_dept,
+                '调出部门' => DepartmentCode::resolveName('department', $order->from_dept),
+                '调入部门' => DepartmentCode::resolveName('department', $order->to_dept),
                 '调出人' => $order->from_user,
                 '调入人' => $order->to_user,
                 '经办人' => $order->operator,
@@ -117,18 +114,17 @@ class PrintController extends Controller
     {
         $borrow = AssetBorrow::findOrFail($id);
         $asset = $borrow->asset;
-        $deptMap = DepartmentCode::type('department')->pluck('name', 'code');
 
         $rows = [];
         if ($asset) {
             $rows[] = [
                 'asset_code' => $asset->asset_code,
                 'name' => $asset->name,
-                'category' => $asset->category,
+                'category' => DepartmentCode::resolveName('category', $asset->category),
                 'brand' => $asset->brand ?? '-',
                 'model' => $asset->model ?? '-',
                 'sn' => $asset->sn ?? '-',
-                'department' => $deptMap[$asset->department] ?? $asset->department,
+                'department' => DepartmentCode::resolveName('department', $asset->department),
                 'user' => $asset->user ?? '-',
             ];
         }
@@ -139,7 +135,7 @@ class PrintController extends Controller
                 '借用日期' => $borrow->borrow_date?->format('Y-m-d'),
                 '预计归还' => $borrow->expected_return_date?->format('Y-m-d'),
                 '借用人' => $borrow->borrower,
-                '借用部门' => $deptMap[$borrow->department] ?? $borrow->department,
+                '借用部门' => DepartmentCode::resolveName('department', $borrow->department),
                 '事由' => $borrow->remarks,
             ],
             'rows' => $rows,
@@ -151,19 +147,16 @@ class PrintController extends Controller
         $disposal = AssetDisposal::findOrFail($id);
         $assetIds = $disposal->draft_data['asset_ids'] ?? [];
         $assets = Asset::whereIn('id', $assetIds)->get();
-        $catMap = DepartmentCode::type('category')->pluck('name', 'code');
-        $deptMap = DepartmentCode::type('department')->pluck('name', 'code');
-        $statusMap = DepartmentCode::type('status')->pluck('name', 'code');
 
         $rows = $assets->map(fn($a) => [
             'asset_code' => $a->asset_code,
             'name' => $a->name,
-            'category' => $catMap[$a->category] ?? $a->category,
+            'category' => DepartmentCode::resolveName('category', $a->category),
             'brand' => $a->brand ?? '-',
             'model' => $a->model ?? '-',
             'sn' => $a->sn ?? '-',
-            'department' => $deptMap[$a->department] ?? $a->department,
-            'status' => $statusMap[$a->status] ?? $a->status,
+            'department' => DepartmentCode::resolveName('department', $a->department),
+            'status' => DepartmentCode::resolveName('status', $a->status),
             'user' => $a->user ?? '-',
         ])->toArray();
 
@@ -217,7 +210,6 @@ class PrintController extends Controller
     {
         $usage = ConsumableUsage::findOrFail($id);
         $usage->load('consumable');
-        $deptMap = DepartmentCode::type('department')->pluck('name', 'code');
 
         $rows = [[
             'name' => $usage->consumable->name ?? '-',
@@ -230,7 +222,7 @@ class PrintController extends Controller
             'orderNo' => '',
             'metaValues' => [
                 '领用日期' => $usage->usage_date?->format('Y-m-d'),
-                '使用部门' => $deptMap[$usage->department_code] ?? $usage->department_code,
+                '使用部门' => DepartmentCode::resolveName('department', $usage->department_code),
                 '领用事由' => $usage->reason,
                 '经办人' => $usage->operator_name,
             ],

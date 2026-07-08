@@ -49,7 +49,12 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">借用部门</label>
-                        <input type="text" name="department" class="w-full border border-gray-200 rounded-xl py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500">
+                        <select name="department" class="w-full border border-gray-200 rounded-xl py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500">
+                            <option value="">-- 请选择 --</option>
+                            @foreach(\App\Models\DepartmentCode::type('department')->orderBy('code')->get() as $dept)
+                                <option value="{{ $dept->code }}">{{ $dept->name }}</option>
+                            @endforeach
+                        </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">借用日期 <span class="text-red-500">*</span></label>

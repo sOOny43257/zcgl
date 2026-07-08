@@ -60,7 +60,7 @@
                         <td class="px-3 py-2.5 text-sm font-mono font-bold text-gray-800">{{ $borrow->asset->asset_code ?? '-' }}</td>
                         <td class="px-3 py-2.5 text-sm text-gray-700">{{ $borrow->asset->name ?? '-' }}</td>
                         <td class="px-3 py-2.5 text-sm font-medium text-gray-800">{{ $borrow->borrower }}</td>
-                        <td class="px-3 py-2.5 text-sm text-gray-600">{{ $borrow->department ?: '-' }}</td>
+                        <td class="px-3 py-2.5 text-sm text-gray-600">{{ \App\Models\DepartmentCode::resolveName('department', $borrow->department) }}</td>
                         <td class="px-3 py-2.5 text-sm text-gray-600">{{ $borrow->borrow_date->format('Y-m-d') }}</td>
                         <td class="px-3 py-2.5 text-sm text-gray-600">{{ $borrow->expected_return_date ? $borrow->expected_return_date->format('Y-m-d') : '-' }}</td>
                         <td class="px-3 py-2.5 text-sm font-mono text-gray-600">{{ $borrow->order_no }}</td>

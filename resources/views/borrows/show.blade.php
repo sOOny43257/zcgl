@@ -31,15 +31,20 @@
     </div>
 </div>
 <div class="content">
+    @php
+        $a = $borrow->asset;
+        $borrowDept = \App\Models\DepartmentCode::resolveName('department', $borrow->department);
+        $assetDept = \App\Models\DepartmentCode::resolveName('department', $a->department ?? '');
+        $assetCat = \App\Models\DepartmentCode::resolveName('category', $a->category ?? '');
+    @endphp
     <div class="title">设 备 借 用 单</div>
     <div class="order-no">编号：{{ $borrow->order_no }}</div>
     <table class="info-table">
-        @php $a = $borrow->asset; @endphp
-        <tr><td class="label">自有编号</td><td style="font-family:monospace;font-weight:bold;">{{ $a->asset_code ?? '-' }}</td><td class="label">类别</td><td>{{ $a->category ?? '-' }}</td></tr>
-        <tr><td class="label">资产名称</td><td>{{ $a->name ?? '-' }}</td><td class="label">类别</td><td>{{ $a->category ?? '-' }}</td></tr>
+        <tr><td class="label">自有编号</td><td style="font-family:monospace;font-weight:bold;">{{ $a->asset_code ?? '-' }}</td><td class="label">类别</td><td>{{ $assetCat }}</td></tr>
+        <tr><td class="label">资产名称</td><td>{{ $a->name ?? '-' }}</td><td class="label">类别</td><td>{{ $assetCat }}</td></tr>
         <tr><td class="label">IP地址</td><td style="font-family:monospace;">{{ $a->ip }}</td><td class="label">MAC地址</td><td style="font-family:monospace;">{{ $a->mac }}</td></tr>
         <tr><td class="label">SN序列号</td><td>{{ $a->sn ?: '-' }}</td><td class="label">品牌/型号</td><td>{{ $a->brand ?: '-' }} / {{ $a->model ?: '-' }}</td></tr>
-        <tr><td class="label">借用人</td><td><strong>{{ $borrow->borrower }}</strong></td><td class="label">借用部门</td><td>{{ $borrow->department ?: '-' }}</td></tr>
+        <tr><td class="label">借用人</td><td><strong>{{ $borrow->borrower }}</strong></td><td class="label">借用部门</td><td>{{ $borrowDept ?: '-' }}</td></tr>
         <tr><td class="label">借用日期</td><td>{{ $borrow->borrow_date->format('Y年m月d日') }}</td><td class="label">预计归还</td><td>{{ $borrow->expected_return_date ? $borrow->expected_return_date->format('Y年m月d日') : '-' }}</td></tr>
         <tr><td class="label">备注</td><td colspan="3">{{ $borrow->remarks ?: '' }}</td></tr>
     </table>
