@@ -110,6 +110,11 @@ class Asset extends Model
         return $this->hasMany(AssetLog::class)->orderBy('created_at', 'desc');
     }
 
+    public function repairs()
+    {
+        return $this->hasMany(Repair::class)->orderBy('created_at', 'desc');
+    }
+
     // === 编码→中文名翻译（带缓存） ===
     protected static $nameCache = null;
 

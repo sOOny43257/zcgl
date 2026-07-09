@@ -9,6 +9,7 @@ use App\Http\Controllers\DataUpdateController;
 use App\Http\Controllers\DepartmentCodeController;
 use App\Http\Controllers\InstallController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RepairController;
 use App\Http\Controllers\SystemController;
 use App\Http\Controllers\TransferOrderController;
 use App\Http\Controllers\UpdateController;
@@ -97,6 +98,9 @@ Route::middleware('auth')->group(function () {
     // 资产报废（所有登录用户可查看列表和详情）
     Route::get('/disposals', [AssetDisposalController::class, 'index'])->name('disposals.index');
 
+    // 维修管理（所有登录用户可查看列表和详情）
+    Route::get('/repairs', [RepairController::class, 'index'])->name('repairs.index');
+
     // 管理员专属
     Route::middleware('admin')->group(function () {
         // 资产 CRUD
@@ -143,6 +147,16 @@ Route::middleware('auth')->group(function () {
         Route::patch('/borrows/{borrow}/return', [AssetBorrowController::class, 'returnBook'])->name('borrows.return');
         Route::post('/borrows/batch-return', [AssetBorrowController::class, 'batchReturn'])->name('borrows.batchReturn');
         Route::delete('/borrows/{borrow}', [AssetBorrowController::class, 'destroy'])->name('borrows.destroy');
+
+        // 维修管理
+        Route::get('/repairs/create', [RepairController::class, 'create'])->name('repairs.create');
+        Route::post('/repairs', [RepairController::class, 'store'])->name('repairs.store');
+        Route::post('/repairs/cancel', [RepairController::class, 'cancel'])->name('repairs.cancel');
+        Route::get('/repairs/{repair}', [RepairController::class, 'show'])->name('repairs.show');
+        Route::get('/repairs/{repair}/edit', [RepairController::class, 'edit'])->name('repairs.edit');
+        Route::put('/repairs/{repair}', [RepairController::class, 'update'])->name('repairs.update');
+        Route::delete('/repairs/{repair}', [RepairController::class, 'destroy'])->name('repairs.destroy');
+        Route::post('/repairs/{repair}/complete', [RepairController::class, 'complete'])->name('repairs.complete');
 
         // 系统更新
         Route::get('/updates', [UpdateController::class, 'index'])->name('updates.index');

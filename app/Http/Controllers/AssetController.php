@@ -35,6 +35,7 @@ class AssetController extends Controller
     public function show(Asset $asset)
     {
         $logs = $asset->logs()->with('user')->limit(50)->get();
+        $repairs = $asset->repairs()->limit(20)->get();
 
         // 构建 log_id → 调拨单号 的映射
         $transferOrders = \App\Models\TransferOrder::where('asset_id', $asset->id)->get();
@@ -45,7 +46,7 @@ class AssetController extends Controller
             }
         }
 
-        return view('assets.show', compact('asset', 'logs', 'logToOrder'));
+        return view('assets.show', compact('asset', 'logs', 'logToOrder', 'repairs'));
     }
 
     public function edit(Asset $asset)

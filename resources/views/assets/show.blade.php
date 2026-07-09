@@ -148,10 +148,77 @@
                 报废此设备
             </a>
             @endif
+            @if($asset->status !== 'BF')
+            <a href="{{ route('repairs.create', ['asset_id' => $asset->id]) }}" class="inline-flex items-center px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700">
+                <svg class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/></svg>
+                维修此设备
+            </a>
+            @endif
         </div>
         @endif
 
         <!-- 变更历史时间线 -->
+
+        <!-- 维修历史 -->
+        <div class="bg-white rounded-xl shadow-sm">
+            <div class="p-6 border-b flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800">维修历史</h3>
+                    <p class="text-sm text-gray-500 mt-1">该资产的维修记录</p>
+                </div>
+                @if($asset->status !== 'BF' && auth()->user()->isAdmin())
+                <a href="{{ route('repairs.create', ['asset_id' => $asset->id]) }}" class="text-sm text-blue-600 hover:underline">+ 新建维修单</a>
+                @endif
+            </div>
+            <div class="p-6">
+                @if($repairs->isEmpty())
+                    <div class="text-center py-8 text-gray-400">
+                        <svg class="h-10 w-10 mx-auto mb-2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/></svg>
+                        <p class="text-sm">暂无维修记录</p>
+                    </div>
+                @else
+                    <div class="space-y-3">
+                        @foreach($repairs as $repair)
+                        <div class="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                            <div class="flex items-center gap-4 min-w-0">
+                                @php
+                                    $statusColors = [
+                                        'draft' => 'bg-gray-100 text-gray-600',
+                                        'submitted' => 'bg-blue-100 text-blue-700',
+                                        'in_progress' => 'bg-yellow-100 text-yellow-700',
+                                        'completed' => 'bg-green-100 text-green-700',
+                                        'cancelled' => 'bg-red-100 text-red-600',
+                                    ];
+                                @endphp
+                                <span class="px-2 py-0.5 rounded-full text-xs font-medium {{ $statusColors[$repair->status] ?? 'bg-gray-100 text-gray-600' }} shrink-0">
+                                    {{ $repair->status_name }}
+                                </span>
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        @if($repair->order_no)
+                                            <a href="{{ route('repairs.show', $repair) }}" class="text-sm text-blue-600 hover:underline font-mono">{{ $repair->order_no }}</a>
+                                        @else
+                                            <span class="text-sm text-gray-400">草稿</span>
+                                        @endif
+                                        @if($repair->fault_category)
+                                            <span class="text-xs text-gray-400">·</span>
+                                            <span class="text-xs text-gray-500">{{ $repair->fault_category }}</span>
+                                        @endif
+                                    </div>
+                                    <p class="text-xs text-gray-400 mt-0.5">
+                                        {{ $repair->repair_date?->format('Y-m-d') ?? '-' }}
+                                        @if($repair->vendor) · {{ $repair->vendor }} @endif
+                                        @if($repair->cost) · 费用 {{ number_format($repair->cost, 2) }}元 @endif
+                                    </p>
+                                </div>
+                            </div>
+                            <a href="{{ route('repairs.show', $repair) }}" class="text-xs text-gray-400 hover:text-blue-600 shrink-0 ml-4">详情 &rarr;</a>
+                        </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+        </div>
         <div class="bg-white rounded-xl shadow-sm">
             <div class="p-6 border-b">
                 <h3 class="text-lg font-semibold text-gray-800">变更历史</h3>
