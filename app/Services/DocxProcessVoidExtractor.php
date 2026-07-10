@@ -11,21 +11,23 @@ class DocxProcessVoidExtractor
         $phpWord = IOFactory::load($filePath);
         $sections = $phpWord->getSections();
 
+        // Collect all rows from ALL tables across ALL sections
+        $allRows = [];
         foreach ($sections as $section) {
-            $elements = $section->getElements();
-
-            foreach ($elements as $element) {
+            foreach ($section->getElements() as $element) {
                 if (method_exists($element, 'getRows')) {
-                    $rows = $element->getRows();
-
-                    if (! empty($rows)) {
-                        return $this->parseTable($rows);
+                    foreach ($element->getRows() as $row) {
+                        $allRows[] = $row;
                     }
                 }
             }
         }
 
-        return [];
+        if (empty($allRows)) {
+            return [];
+        }
+
+        return $this->parseTable($allRows);
     }
 
     private function parseTable(array $rows): array
@@ -50,10 +52,10 @@ class DocxProcessVoidExtractor
             'termination_reason' => ['终止原因'],
         ];
 
-        // Signature labels: key => [label prefix to strip, data field]
-        $signatureLabels = [
-            '提请人签字' => 'submitter_sign',
-            '科所长签字' => 'department_chief_sign',
+        // Signature label keywords — order matters: longer/more specific first
+        $signatureMap = [
+            'department_chief_sign' => '科所长签字',
+            'submitter_sign'        => '提请人签字',
         ];
 
         foreach ($rows as $row) {
@@ -64,11 +66,14 @@ class DocxProcessVoidExtractor
                 $cellTexts[] = $this->getCellText($cell);
             }
 
-            // Pass 1: extract signature values from merged label+value cells
+            // Pass 1: extract signature values from cells containing label keywords
             foreach ($cellTexts as $cellText) {
-                foreach ($signatureLabels as $labelPrefix => $field) {
-                    if ($data[$field] === '' && mb_strpos($cellText, $labelPrefix) !== false) {
-                        $extracted = $this->extractInlineValue($cellText, $labelPrefix);
+                foreach ($signatureMap as $field => $labelKeyword) {
+                    if ($data[$field] !== '') {
+                        continue; // already found
+                    }
+                    if (mb_strpos($cellText, $labelKeyword) !== false) {
+                        $extracted = $this->extractSignatureValue($cellText, $labelKeyword);
                         if ($extracted !== '') {
                             $data[$field] = $extracted;
                         }
@@ -89,11 +94,6 @@ class DocxProcessVoidExtractor
                         $data[$field] = $this->cleanValue($value);
                     }
                 }
-
-                // Also try pair-based extraction for submitter_sign if still empty
-                if ($data['submitter_sign'] === '' && $this->labelMatches($label, ['提请人签字'])) {
-                    $data['submitter_sign'] = $this->cleanValue($value);
-                }
             }
         }
 
@@ -101,24 +101,30 @@ class DocxProcessVoidExtractor
     }
 
     /**
-     * Extract the value portion from a cell that contains both a label and value inline.
-     * e.g. "提请人签字/日期 |  | 郭彤" => "郭彤"
+     * Extract the name/value portion from a signature cell.
+     * Strips the label keyword and common label fragments, then returns what remains.
+     *
+     * Examples:
+     *   "提请人签字/日期 | | 郭彤"       => "郭彤"
+     *   "科所长签字/日期/科所章 | | 孙国枢" => "孙国枢"
+     *   "提请人签字/日期\n郭彤"            => "郭彤"
      */
-    private function extractInlineValue(string $cellText, string $labelPrefix): string
+    private function extractSignatureValue(string $cellText, string $labelKeyword): string
     {
-        // Split by common separators: |, ｜, tab
-        $parts = preg_split('/[|｜]+/u', $cellText);
+        // Match label keyword + all slash-separated label fragments (日期/科所章/签字)
+        // plus trailing pipe/space separators
+        $suffixes = '(?:[\/]*(?:日期|科所章|签字))*';
+        $trailing = '[\/\s|｜]*';
+        $pattern = '/' . preg_quote($labelKeyword, '/') . $suffixes . $trailing . '/u';
+        $cleaned = preg_replace($pattern, '', $cellText);
 
-        if (count($parts) < 2) {
-            return '';
-        }
+        // Split by common separators: |, newline, multiple spaces
+        $parts = preg_split('/[\s|｜]+/u', trim($cleaned));
+        $parts = array_filter($parts, static fn ($p) => $p !== '');
 
-        // Take the last non-empty part as the value
-        for ($i = count($parts) - 1; $i >= 0; $i--) {
-            $val = trim($parts[$i]);
-            if ($val !== '' && $val !== $labelPrefix) {
-                return $val;
-            }
+        // Return the first meaningful remaining part (the name)
+        if (! empty($parts)) {
+            return trim(array_values($parts)[0]);
         }
 
         return '';

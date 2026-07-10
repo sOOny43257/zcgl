@@ -82,17 +82,17 @@
         </div>
         @endif
 
-        {{-- 作废信息 --}}
+        {{-- 提交信息 --}}
         @if($permissionOrder->isVoided())
         <div class="bg-white rounded-xl shadow-sm p-6">
-            <h3 class="text-base font-semibold text-gray-800 mb-4">作废信息</h3>
+            <h3 class="text-base font-semibold text-gray-800 mb-4">提交信息</h3>
             <dl class="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3">
                 <div>
-                    <dt class="text-xs text-gray-500">作废人</dt>
+                    <dt class="text-xs text-gray-500">修改人</dt>
                     <dd class="text-sm text-gray-800">{{ $permissionOrder->voided_by ?: '—' }}</dd>
                 </div>
                 <div>
-                    <dt class="text-xs text-gray-500">作废时间</dt>
+                    <dt class="text-xs text-gray-500">修改时间</dt>
                     <dd class="text-sm text-gray-800">{{ optional($permissionOrder->voided_at)->format('Y-m-d H:i') ?: '—' }}</dd>
                 </div>
                 <div>

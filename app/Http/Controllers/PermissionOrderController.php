@@ -279,6 +279,92 @@ class PermissionOrderController extends Controller
         ]);
     }
 
+
+    public function exportCsv(Request $request)
+    {
+        $query = PermissionOrder::query();
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('order_no', 'like', "%{$search}%")
+                    ->orWhere('department', 'like', "%{$search}%")
+                    ->orWhere('voided_by', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->boolean('show_voided')) {
+            $query->where('status', 'voided');
+        } elseif ($request->filled('status')) {
+            $query->where('status', $request->input('status'));
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('updated_at', '>=', $request->input('date_from'));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('updated_at', '<=', $request->input('date_to'));
+        }
+
+        $orders = $query->orderByDesc('updated_at')->get();
+
+        $filename = '权限单汇总_' . date('Ymd_His') . '.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+
+        $callback = function () use ($orders) {
+            $file = fopen('php://output', 'w');
+            fwrite($file, "ï»¿");
+
+            fputcsv($file, ['单号', '填报部门', '填写日期', '姓名', '涉及业务系统', '原岗位', '增加岗位', '减少岗位', '状态', '修改人', '修改时间', '纸质单据', '创建时间', '更新时间']);
+
+            foreach ($orders as $order) {
+                $items = $order->items ?? [];
+                if (empty($items)) {
+                    fputcsv($file, [
+                        $order->order_no ?: '草稿',
+                        $order->department,
+                        $order->fill_date,
+                        '', '', '', '', '',
+                        $order->statusLabel(),
+                        $order->voided_by,
+                        optional($order->voided_at)->format('Y-m-d H:i'),
+                        $order->paperSubmittedLabel(),
+                        $order->created_at->format('Y-m-d H:i'),
+                        $order->updated_at->format('Y-m-d H:i'),
+                    ]);
+                } else {
+                    foreach ($items as $item) {
+                        fputcsv($file, [
+                            $order->order_no ?: '草稿',
+                            $order->department,
+                            $order->fill_date,
+                            $item['names'] ?? '',
+                            $item['business_system'] ?? '',
+                            $item['original_position'] ?? '',
+                            $item['added_position'] ?? '',
+                            $item['removed_position'] ?? '',
+                            $order->statusLabel(),
+                            $order->voided_by,
+                            optional($order->voided_at)->format('Y-m-d H:i'),
+                            $order->paperSubmittedLabel(),
+                            $order->created_at->format('Y-m-d H:i'),
+                            $order->updated_at->format('Y-m-d H:i'),
+                        ]);
+                    }
+                }
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
     public function downloadDoc(PermissionOrder $permissionOrder)
     {
         if (! $permissionOrder->source_doc_path || ! Storage::disk('public')->exists($permissionOrder->source_doc_path)) {

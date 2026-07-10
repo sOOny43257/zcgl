@@ -162,4 +162,44 @@ class ProcessVoidOrderTest extends TestCase
             'source_doc' => $txtFile,
         ])->assertSessionHas('error');
     }
+    public function test_show_page_displays_order_details(): void
+    {
+        Storage::fake('public');
+        $this->actingAs($this->admin());
+
+        // Create a draft
+        $this->post(route('process-void-orders.store'), [
+            '_action' => 'draft',
+            'source_doc' => $this->realDocx(),
+        ]);
+
+        $order = ProcessVoidOrder::first();
+        $this->assertNotNull($order);
+
+        // Show draft
+        $response = $this->get(route('process-void-orders.show', $order));
+        $response->assertOk();
+        $response->assertSee($order->department);
+        $response->assertSee($order->company_name);
+        $response->assertSee($order->tax_no);
+        $response->assertSee('草稿');
+
+        // Void it
+        $this->post(route('process-void-orders.void', $order), [
+            'voided_by' => '测试员',
+            'voided_at' => now()->format('Y-m-d H:i:s'),
+            'department' => $order->department,
+            'company_name' => $order->company_name,
+            'tax_no' => $order->tax_no,
+            'process_name' => $order->process_name,
+            'termination_reason' => $order->termination_reason,
+        ]);
+
+        $order->refresh();
+        $response = $this->get(route('process-void-orders.show', $order));
+        $response->assertOk();
+        $response->assertSee($order->order_no);
+        $response->assertSee('已作废');
+        $response->assertSee('测试员');
+    }
 }

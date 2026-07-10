@@ -46,6 +46,12 @@ class ProcessVoidOrderController extends Controller
         return view('process-void-orders.index', compact('orders'));
     }
 
+    public function show(ProcessVoidOrder $processVoidOrder)
+    {
+        return view('process-void-orders.show', compact('processVoidOrder'));
+    }
+
+
     public function create()
     {
         return view('process-void-orders.create', [
@@ -286,6 +292,78 @@ class ProcessVoidOrderController extends Controller
             'paper_submitted_at' => optional($processVoidOrder->paper_submitted_at)->format('Y-m-d H:i'),
             'label' => $processVoidOrder->paperSubmittedLabel(),
         ]);
+    }
+
+
+    public function exportCsv(Request $request)
+    {
+        $query = ProcessVoidOrder::query();
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('order_no', 'like', "%{$search}%")
+                    ->orWhere('department', 'like', "%{$search}%")
+                    ->orWhere('company_name', 'like', "%{$search}%")
+                    ->orWhere('tax_no', 'like', "%{$search}%")
+                    ->orWhere('process_name', 'like', "%{$search}%")
+                    ->orWhere('voided_by', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->boolean('show_voided')) {
+            $query->where('status', 'voided');
+        } elseif ($request->filled('status')) {
+            $query->where('status', $request->input('status'));
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('updated_at', '>=', $request->input('date_from'));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('updated_at', '<=', $request->input('date_to'));
+        }
+
+        $orders = $query->orderByDesc('updated_at')->get();
+
+        $filename = '流程单汇总_' . date('Ymd_His') . '.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+
+        $callback = function () use ($orders) {
+            $file = fopen('php://output', 'w');
+            fwrite($file, "ï»¿");
+
+            fputcsv($file, ['单号', '科所名称', '起流时间', '企业名称', '税号', '流程名称', '终止原因', '提请人签字', '科所长签字', '状态', '作废人', '作废时间', '纸质单据', '创建时间', '更新时间']);
+
+            foreach ($orders as $order) {
+                fputcsv($file, [
+                    $order->order_no ?: '草稿',
+                    $order->department,
+                    $order->flow_start_time,
+                    $order->company_name,
+                    $order->tax_no,
+                    $order->process_name,
+                    $order->termination_reason,
+                    $order->submitter_sign,
+                    $order->department_chief_sign,
+                    $order->statusLabel(),
+                    $order->voided_by,
+                    optional($order->voided_at)->format('Y-m-d H:i'),
+                    $order->paperSubmittedLabel(),
+                    $order->created_at->format('Y-m-d H:i'),
+                    $order->updated_at->format('Y-m-d H:i'),
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 
     public function downloadDoc(ProcessVoidOrder $processVoidOrder)
