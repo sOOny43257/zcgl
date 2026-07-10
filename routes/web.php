@@ -201,6 +201,7 @@ Route::middleware('auth')->group(function () {
 
         // 单据汇总
         Route::get('/process-void-orders', [\App\Http\Controllers\ProcessVoidOrderController::class, 'index'])->name('process-void-orders.index');
+        Route::post('/process-void-orders/parse', [\App\Http\Controllers\ProcessVoidOrderController::class, 'parse'])->name('process-void-orders.parse');
         Route::get('/process-void-orders/create', [\App\Http\Controllers\ProcessVoidOrderController::class, 'create'])->name('process-void-orders.create');
         Route::post('/process-void-orders', [\App\Http\Controllers\ProcessVoidOrderController::class, 'store'])->name('process-void-orders.store');
         Route::get('/process-void-orders/{processVoidOrder}/edit', [\App\Http\Controllers\ProcessVoidOrderController::class, 'edit'])->name('process-void-orders.edit');

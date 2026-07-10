@@ -4,23 +4,111 @@
         @method('PUT')
     @endif
     <input type="hidden" name="_action" value="draft" id="processVoidAction">
+    {{-- File is uploaded via AJAX parse; store the original file in a hidden input for final submission --}}
+    <input type="hidden" name="source_doc_hidden" id="sourceDocHidden" value="1">
 
-    <div class="bg-white rounded-xl shadow-sm p-6 mb-4">
+    <div class="bg-white rounded-xl shadow-sm p-6 mb-4" x-data="{
+        fileName: '{{ $order->source_file_name ?? '' }}',
+        loading: false,
+        error: '',
+        dragover: false,
+        async handleFile(file) {
+            if (!file) return;
+            if (!file.name.toLowerCase().endsWith('.docx')) {
+                this.error = '仅支持 .docx 格式的 Word 文件';
+                return;
+            }
+            this.error = '';
+            this.loading = true;
+            this.fileName = file.name;
+
+            const fd = new FormData();
+            fd.append('source_doc', file);
+            fd.append('_token', document.querySelector('meta[name=csrf-token]').content);
+
+            try {
+                const base = (window.APP_URL || '').replace(/\/+$/, '');
+                const res = await fetch(base + '/process-void-orders/parse', {
+                    method: 'POST',
+                    headers: {'X-Requested-With': 'XMLHttpRequest'},
+                    body: fd,
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    this.error = data.error || '解析失败，请重试';
+                    this.loading = false;
+                    return;
+                }
+                const p = data.parsed;
+                document.querySelector('[name=department]').value = p.department || '';
+                document.querySelector('[name=flow_start_time]').value = p.flow_start_time || '';
+                document.querySelector('[name=company_name]').value = p.company_name || '';
+                document.querySelector('[name=tax_no]').value = p.tax_no || '';
+                document.querySelector('[name=process_name]').value = p.process_name || '';
+                document.querySelector('[name=termination_reason]').value = p.termination_reason || '';
+                document.querySelector('[name=submitter_sign]').value = p.submitter_sign || '';
+                document.querySelector('[name=department_chief_sign]').value = p.department_chief_sign || '';
+                this.fileName = data.source_file_name;
+
+                // Store the actual file for final form submission
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                const realInput = document.getElementById('sourceDocReal');
+                realInput.files = dt.files;
+            } catch (e) {
+                this.error = '网络错误，请重试';
+            }
+            this.loading = false;
+        },
+        onDrop(e) {
+            this.dragover = false;
+            const file = e.dataTransfer.files[0];
+            this.handleFile(file);
+        }
+    }">
         <h3 class="text-base font-semibold text-gray-800 mb-4">上传 Word 模板</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">流程单文件 <span class="text-red-500">*</span></label>
-                <input type="file" name="source_doc" accept=".docx" class="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                @error('source_doc')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                @if($order && $order->source_file_name)
-                <p class="mt-2 text-xs text-gray-500">已上传：{{ $order->source_file_name }}（重新上传将覆盖）</p>
-                @endif
+
+        {{-- Drag & drop zone --}}
+        <div class="border-2 border-dashed rounded-xl p-8 text-center transition-colors duration-200 cursor-pointer mb-4"
+             :class="dragover ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-blue-300 hover:bg-gray-50'"
+             @dragover.prevent="dragover = true"
+             @dragleave.prevent="dragover = false"
+             @drop.prevent="onDrop($event)"
+             @click="$refs.fileInput.click()">
+            <input type="file" x-ref="fileInput" class="hidden" accept=".docx"
+                   @change="handleFile($event.target.files[0])">
+            <div x-show="!loading">
+                <svg class="mx-auto h-10 w-10 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                <p class="text-sm text-gray-600 mb-1">将 .docx 文件拖到此处，或 <span class="text-blue-600 font-medium">点击选择</span></p>
+                <p class="text-xs text-gray-400">上传后自动提取表格信息，可手动修改</p>
             </div>
-            <div class="text-sm text-gray-500 leading-6">
-                <p>仅支持 <strong>.docx</strong> 文件，系统会自动提取第一张表格中的字段。</p>
-                <p>若模板不规范导致解析失败，页面会提示重新上传。</p>
+            <div x-show="loading" class="flex items-center justify-center gap-3">
+                <svg class="animate-spin h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                </svg>
+                <span class="text-sm text-blue-600 font-medium">正在解析文档...</span>
             </div>
         </div>
+
+        {{-- File info / error --}}
+        <div x-show="error" class="mb-3 px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
+            <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span x-text="error"></span>
+        </div>
+        <div x-show="fileName && !error && !loading" class="mb-3 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700 flex items-center gap-2">
+            <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <span>已上传：<strong x-text="fileName"></strong>，信息已自动提取，可修改后保存</span>
+        </div>
+        @if($order && $order->source_file_name)
+        <p class="text-xs text-gray-500 mb-2">当前文件：{{ $order->source_file_name }}（重新上传将覆盖）</p>
+        @endif
+
+        {{-- Real file input (hidden, for form submission) --}}
+        <input type="file" name="source_doc" id="sourceDocReal" accept=".docx" class="hidden">
+        @error('source_doc')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
     </div>
 
     <div class="bg-white rounded-xl shadow-sm p-6 mb-4">
@@ -53,6 +141,10 @@
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">提请人签字</label>
                 <input type="text" name="submitter_sign" value="{{ old('submitter_sign', $parsed['submitter_sign'] ?? '') }}" class="w-full border border-gray-300 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">科所长签字</label>
+                <input type="text" name="department_chief_sign" value="{{ old('department_chief_sign', $parsed['department_chief_sign'] ?? '') }}" class="w-full border border-gray-300 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
         </div>
     </div>

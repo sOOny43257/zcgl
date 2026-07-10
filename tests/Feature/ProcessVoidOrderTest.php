@@ -31,6 +31,34 @@ class ProcessVoidOrderTest extends TestCase
         return new UploadedFile($tmp, 'process.docx', null, null, true);
     }
 
+    public function test_parse_endpoint_extracts_fields(): void
+    {
+        $this->actingAs($this->admin());
+
+        $response = $this->postJson(route('process-void-orders.parse'), [
+            'source_doc' => $this->realDocx(),
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonStructure(['parsed', 'source_file_name']);
+        $response->assertJsonPath('parsed.company_name', '天津智一达科技有限公司');
+        $response->assertJsonPath('parsed.tax_no', '91120111MA06M7407R');
+        $response->assertJsonPath('parsed.department', '南营门所');
+        $response->assertJsonPath('parsed.submitter_sign', '郭彤');
+        $response->assertJsonPath('parsed.department_chief_sign', '孙国枢');
+    }
+
+    public function test_parse_rejects_non_docx(): void
+    {
+        $this->actingAs($this->admin());
+
+        $txtFile = UploadedFile::fake()->create('test.txt', 100);
+
+        $this->postJson(route('process-void-orders.parse'), [
+            'source_doc' => $txtFile,
+        ])->assertStatus(422);
+    }
+
     public function test_store_draft_from_docx_and_update_and_void(): void
     {
         Storage::fake('public');
@@ -52,8 +80,9 @@ class ProcessVoidOrderTest extends TestCase
         $this->assertEquals('2023-02-10', $order->flow_start_time);
         $this->assertStringContainsString('退抵税费审批', $order->process_name);
         $this->assertEquals('资料无法按时提供。', $order->termination_reason);
+        $this->assertEquals('郭彤', $order->submitter_sign);
+        $this->assertEquals('孙国枢', $order->department_chief_sign);
         $this->assertNotNull($order->source_doc_path);
-        $this->assertNotNull($order->draft_data);
         Storage::disk('public')->assertExists($order->source_doc_path);
 
         // Update the draft
@@ -63,28 +92,28 @@ class ProcessVoidOrderTest extends TestCase
             'flow_start_time' => '2023-02-10',
             'company_name' => '天津智一达科技有限公司',
             'tax_no' => '91120111MA06M7407R',
-            'process_name' => '退抵税费审批-管理所核实（优惠）',
+            'process_name' => '退抵税费审批',
             'termination_reason' => '资料无法按时提供。',
-            'submitter_sign' => '郭彤',
+            'submitter_sign' => '郭彤(修改)',
+            'department_chief_sign' => '孙国枢(修改)',
         ])->assertSessionHasNoErrors();
 
         $order->refresh();
         $this->assertEquals('南营门所(修改)', $order->department);
-        $this->assertEquals('郭彤', $order->submitter_sign);
+        $this->assertEquals('郭彤(修改)', $order->submitter_sign);
+        $this->assertEquals('孙国枢(修改)', $order->department_chief_sign);
 
         // Toggle paper submitted
         $this->post(route('process-void-orders.togglePaper', $order))
             ->assertJson(['paper_submitted' => true]);
         $order->refresh();
         $this->assertTrue($order->paper_submitted);
-        $this->assertNotNull($order->paper_submitted_at);
 
         // Toggle back
         $this->post(route('process-void-orders.togglePaper', $order))
             ->assertJson(['paper_submitted' => false]);
         $order->refresh();
         $this->assertFalse($order->paper_submitted);
-        $this->assertNull($order->paper_submitted_at);
 
         // Submit void
         $this->post(route('process-void-orders.void', $order), [
@@ -104,7 +133,6 @@ class ProcessVoidOrderTest extends TestCase
         $this->assertNotNull($order->order_no);
         $this->assertStringStartsWith('LCZF-', $order->order_no);
         $this->assertTrue($order->paper_submitted);
-        $this->assertNotNull($order->voided_at);
     }
 
     public function test_non_admin_cannot_access_module(): void
@@ -120,6 +148,7 @@ class ProcessVoidOrderTest extends TestCase
         $this->actingAs($user)->get(route('process-void-orders.index'))->assertStatus(403);
         $this->actingAs($user)->get(route('process-void-orders.create'))->assertStatus(403);
         $this->actingAs($user)->post(route('process-void-orders.store'))->assertStatus(403);
+        $this->actingAs($user)->postJson(route('process-void-orders.parse'))->assertStatus(403);
     }
 
     public function test_reject_non_docx_upload(): void

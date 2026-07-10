@@ -58,6 +58,7 @@ class ProcessVoidOrderController extends Controller
                 'process_name' => old('process_name'),
                 'termination_reason' => old('termination_reason'),
                 'submitter_sign' => old('submitter_sign'),
+                'department_chief_sign' => old('department_chief_sign'),
             ] : null,
         ]);
     }
@@ -76,6 +77,7 @@ class ProcessVoidOrderController extends Controller
             'process_name' => ['nullable', 'string', 'max:2000'],
             'termination_reason' => ['nullable', 'string', 'max:2000'],
             'submitter_sign' => ['nullable', 'string', 'max:200'],
+            'department_chief_sign' => ['nullable', 'string', 'max:200'],
         ];
 
         if ($strict) {
@@ -111,6 +113,7 @@ class ProcessVoidOrderController extends Controller
             'process_name' => $validated['process_name'] ?? $parsed['process_name'] ?? '',
             'termination_reason' => $validated['termination_reason'] ?? $parsed['termination_reason'] ?? '',
             'submitter_sign' => $validated['submitter_sign'] ?? $parsed['submitter_sign'] ?? '',
+            'department_chief_sign' => $validated['department_chief_sign'] ?? $parsed['department_chief_sign'] ?? '',
             'voided_by' => $strict ? ($validated['voided_by'] ?? '') : null,
             'voided_at' => $strict ? ($validated['voided_at'] ?? now()) : null,
             'paper_submitted' => $strict ? $request->boolean('paper_submitted') : false,
@@ -146,6 +149,7 @@ class ProcessVoidOrderController extends Controller
                 'process_name' => old('process_name', $processVoidOrder->process_name),
                 'termination_reason' => old('termination_reason', $processVoidOrder->termination_reason),
                 'submitter_sign' => old('submitter_sign', $processVoidOrder->submitter_sign),
+                'department_chief_sign' => old('department_chief_sign', $processVoidOrder->department_chief_sign),
             ],
         ]);
     }
@@ -244,6 +248,30 @@ class ProcessVoidOrderController extends Controller
         $processVoidOrder->save();
 
         return redirect()->route('process-void-orders.index')->with('success', "流程单已作废，单号：{$processVoidOrder->order_no}");
+    }
+
+    public function parse(Request $request, DocxProcessVoidExtractor $extractor)
+    {
+        $request->validate([
+            'source_doc' => ['required', 'file', 'max:20480'],
+        ]);
+
+        $uploadedFile = $request->file('source_doc');
+
+        if (strtolower($uploadedFile->getClientOriginalExtension()) !== 'docx') {
+            return response()->json(['error' => '仅支持 .docx 格式的 Word 文件'], 422);
+        }
+
+        $parsed = $extractor->extract($uploadedFile->getRealPath());
+
+        if (empty($parsed)) {
+            return response()->json(['error' => '无法解析上传的 Word 表单，请确认文件是否包含标准表格模板'], 422);
+        }
+
+        return response()->json([
+            'parsed' => $parsed,
+            'source_file_name' => $uploadedFile->getClientOriginalName(),
+        ]);
     }
 
     public function togglePaper(Request $request, ProcessVoidOrder $processVoidOrder)

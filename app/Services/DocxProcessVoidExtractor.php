@@ -38,6 +38,7 @@ class DocxProcessVoidExtractor
             'process_name' => '',
             'termination_reason' => '',
             'submitter_sign' => '',
+            'department_chief_sign' => '',
         ];
 
         $keywords = [
@@ -47,7 +48,12 @@ class DocxProcessVoidExtractor
             'tax_no' => ['税号'],
             'process_name' => ['流程名称'],
             'termination_reason' => ['终止原因'],
-            'submitter_sign' => ['提请人签字'],
+        ];
+
+        // Signature labels: key => [label prefix to strip, data field]
+        $signatureLabels = [
+            '提请人签字' => 'submitter_sign',
+            '科所长签字' => 'department_chief_sign',
         ];
 
         foreach ($rows as $row) {
@@ -58,8 +64,21 @@ class DocxProcessVoidExtractor
                 $cellTexts[] = $this->getCellText($cell);
             }
 
-            $cellTexts = $this->dedupeAdjacent($cellTexts);
-            $pairs = $this->splitToPairs($cellTexts);
+            // Pass 1: extract signature values from merged label+value cells
+            foreach ($cellTexts as $cellText) {
+                foreach ($signatureLabels as $labelPrefix => $field) {
+                    if ($data[$field] === '' && mb_strpos($cellText, $labelPrefix) !== false) {
+                        $extracted = $this->extractInlineValue($cellText, $labelPrefix);
+                        if ($extracted !== '') {
+                            $data[$field] = $extracted;
+                        }
+                    }
+                }
+            }
+
+            // Pass 2: standard label/value pair extraction
+            $deduped = $this->dedupeAdjacent($cellTexts);
+            $pairs = $this->splitToPairs($deduped);
 
             foreach ($pairs as $pair) {
                 $label = $pair['label'];
@@ -70,10 +89,39 @@ class DocxProcessVoidExtractor
                         $data[$field] = $this->cleanValue($value);
                     }
                 }
+
+                // Also try pair-based extraction for submitter_sign if still empty
+                if ($data['submitter_sign'] === '' && $this->labelMatches($label, ['提请人签字'])) {
+                    $data['submitter_sign'] = $this->cleanValue($value);
+                }
             }
         }
 
         return $data;
+    }
+
+    /**
+     * Extract the value portion from a cell that contains both a label and value inline.
+     * e.g. "提请人签字/日期 |  | 郭彤" => "郭彤"
+     */
+    private function extractInlineValue(string $cellText, string $labelPrefix): string
+    {
+        // Split by common separators: |, ｜, tab
+        $parts = preg_split('/[|｜]+/u', $cellText);
+
+        if (count($parts) < 2) {
+            return '';
+        }
+
+        // Take the last non-empty part as the value
+        for ($i = count($parts) - 1; $i >= 0; $i--) {
+            $val = trim($parts[$i]);
+            if ($val !== '' && $val !== $labelPrefix) {
+                return $val;
+            }
+        }
+
+        return '';
     }
 
     private function getCellText($cell): string

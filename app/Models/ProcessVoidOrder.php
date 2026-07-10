@@ -17,7 +17,7 @@ class ProcessVoidOrder extends Model
         'tax_no',
         'process_name',
         'termination_reason',
-        'submitter_sign',
+        'submitter_sign', 'department_chief_sign',
         'voided_by',
         'voided_at',
         'paper_submitted',
@@ -91,6 +91,7 @@ class ProcessVoidOrder extends Model
             'process_name' => ['nullable', 'string', 'max:2000'],
             'termination_reason' => ['nullable', 'string', 'max:2000'],
             'submitter_sign' => ['nullable', 'string', 'max:200'],
+            'department_chief_sign' => ['nullable', 'string', 'max:200'],
         ];
 
         if ($strict) {
