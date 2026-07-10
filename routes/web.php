@@ -9,6 +9,7 @@ use App\Http\Controllers\DataUpdateController;
 use App\Http\Controllers\DepartmentCodeController;
 use App\Http\Controllers\InstallController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RepairController;
 use App\Http\Controllers\SystemController;
 use App\Http\Controllers\TransferOrderController;
 use App\Http\Controllers\UpdateController;
@@ -97,6 +98,9 @@ Route::middleware('auth')->group(function () {
     // 资产报废（所有登录用户可查看列表和详情）
     Route::get('/disposals', [AssetDisposalController::class, 'index'])->name('disposals.index');
 
+    // 维修管理（所有登录用户可查看列表和详情）
+    Route::get('/repairs', [RepairController::class, 'index'])->name('repairs.index');
+
     // 管理员专属
     Route::middleware('admin')->group(function () {
         // 资产 CRUD
@@ -144,6 +148,16 @@ Route::middleware('auth')->group(function () {
         Route::post('/borrows/batch-return', [AssetBorrowController::class, 'batchReturn'])->name('borrows.batchReturn');
         Route::delete('/borrows/{borrow}', [AssetBorrowController::class, 'destroy'])->name('borrows.destroy');
 
+        // 维修管理
+        Route::get('/repairs/create', [RepairController::class, 'create'])->name('repairs.create');
+        Route::post('/repairs', [RepairController::class, 'store'])->name('repairs.store');
+        Route::post('/repairs/cancel', [RepairController::class, 'cancel'])->name('repairs.cancel');
+        Route::get('/repairs/{repair}', [RepairController::class, 'show'])->name('repairs.show');
+        Route::get('/repairs/{repair}/edit', [RepairController::class, 'edit'])->name('repairs.edit');
+        Route::put('/repairs/{repair}', [RepairController::class, 'update'])->name('repairs.update');
+        Route::delete('/repairs/{repair}', [RepairController::class, 'destroy'])->name('repairs.destroy');
+        Route::post('/repairs/{repair}/complete', [RepairController::class, 'complete'])->name('repairs.complete');
+
         // 系统更新
         Route::get('/updates', [UpdateController::class, 'index'])->name('updates.index');
         Route::post('/updates/upload', [UpdateController::class, 'upload'])->name('updates.upload');
@@ -154,6 +168,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/print-templates/{printTemplate}/edit', [\App\Http\Controllers\PrintTemplateController::class, 'edit'])->name('print-templates.edit');
         Route::put('/print-templates/{printTemplate}', [\App\Http\Controllers\PrintTemplateController::class, 'update'])->name('print-templates.update');
         Route::post('/print-templates/{printTemplate}/reset', [\App\Http\Controllers\PrintTemplateController::class, 'resetToDefault'])->name('print-templates.reset');
+
+        // 统一打印
+        Route::get('/print/{module}/{id}', [\App\Http\Controllers\PrintController::class, 'print'])->name('print.universal');
         // 系统管理
         Route::get('/system', [SystemController::class, 'index'])->name('system.index');
         Route::post('/system/init', [SystemController::class, 'init'])->name('system.init');
@@ -181,6 +198,17 @@ Route::middleware('auth')->group(function () {
         Route::delete('/codes/{code}', [DepartmentCodeController::class, 'destroy'])->name('codes.destroy');
         Route::get('/codes/import/form', [DepartmentCodeController::class, 'importForm'])->name('codes.importForm');
         Route::post('/codes/import', [DepartmentCodeController::class, 'import'])->name('codes.import');
+
+        // 单据汇总
+        Route::get('/process-void-orders', [\App\Http\Controllers\ProcessVoidOrderController::class, 'index'])->name('process-void-orders.index');
+        Route::get('/process-void-orders/create', [\App\Http\Controllers\ProcessVoidOrderController::class, 'create'])->name('process-void-orders.create');
+        Route::post('/process-void-orders', [\App\Http\Controllers\ProcessVoidOrderController::class, 'store'])->name('process-void-orders.store');
+        Route::get('/process-void-orders/{processVoidOrder}/edit', [\App\Http\Controllers\ProcessVoidOrderController::class, 'edit'])->name('process-void-orders.edit');
+        Route::put('/process-void-orders/{processVoidOrder}', [\App\Http\Controllers\ProcessVoidOrderController::class, 'update'])->name('process-void-orders.update');
+        Route::delete('/process-void-orders/{processVoidOrder}', [\App\Http\Controllers\ProcessVoidOrderController::class, 'destroy'])->name('process-void-orders.destroy');
+        Route::post('/process-void-orders/{processVoidOrder}/void', [\App\Http\Controllers\ProcessVoidOrderController::class, 'void'])->name('process-void-orders.void');
+        Route::post('/process-void-orders/{processVoidOrder}/paper-toggle', [\App\Http\Controllers\ProcessVoidOrderController::class, 'togglePaper'])->name('process-void-orders.togglePaper');
+        Route::get('/process-void-orders/{processVoidOrder}/download', [\App\Http\Controllers\ProcessVoidOrderController::class, 'downloadDoc'])->name('process-void-orders.download');
     });
 
     // 资产详情 — 必须放在所有字面量路由之后
