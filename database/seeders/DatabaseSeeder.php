@@ -52,6 +52,7 @@ class DatabaseSeeder extends Seeder
         }
 
         // 打印模板
+        $this->call(DictionarySeeder::class);
         $this->call(PrintTemplateSeeder::class);
     }
 }

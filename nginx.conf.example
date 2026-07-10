@@ -1,0 +1,54 @@
+# 资产管理系统 Nginx 配置示例
+# 将此文件复制到 /etc/nginx/sites-available/zcgl，然后创建软链接到 sites-enabled
+
+server {
+    listen 80;
+    # listen 443 ssl;  # 如需 HTTPS，取消注释并配置证书
+
+    # 修改为你的内网域名或 IP
+    server_name zcgl.local;
+    # server_name 192.168.1.100;
+
+    # 项目 public 目录的绝对路径
+    root /var/www/zcgl/public;
+    index index.php index.html;
+
+    # 字符集
+    charset utf-8;
+
+    # 日志
+    access_log /var/log/nginx/zcgl-access.log;
+    error_log  /var/log/nginx/zcgl-error.log;
+
+    # 请求大小限制（上传附件用）
+    client_max_body_size 20M;
+
+    # Laravel 路由重写
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # PHP-FPM 处理
+    location ~ \.php$ {
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        # fastcgi_pass 127.0.0.1:9000;  # 如果使用 TCP 方式连接 FPM
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    # 禁止访问隐藏文件（.env、.git 等）
+    location ~ /\. {
+        deny all;
+    }
+
+    # 禁止访问非 public 目录的文件
+    location ~ ^/(app|bootstrap|config|database|resources|routes|storage|tests|vendor) {
+        deny all;
+    }
+
+    # 静态资源缓存
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
+}

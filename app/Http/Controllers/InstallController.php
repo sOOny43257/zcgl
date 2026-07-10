@@ -94,7 +94,9 @@ class InstallController extends Controller
                 'name' => $request->name,
                 'email' => $request->username . '@local.local',
                 'password' => Hash::make($request->password),
-                'is_admin' => true,
+                'role' => 'admin',
+                'department' => '信息中心',
+                'is_active' => true,
             ]);
         } catch (\Exception $e) {
             return back()->with('error', '创建管理员失败：' . $e->getMessage())->withInput();
