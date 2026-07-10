@@ -82,7 +82,7 @@
         </div>
 
         <!-- 单据汇总（二级菜单） -->
-        @php $processVoidActive = request()->routeIs('process-void-orders.*'); @endphp
+        @php $processVoidActive = request()->routeIs('process-void-orders.*') || request()->routeIs('permission-orders.*'); @endphp
         <div x-data="{ processVoidOpen: {{ $processVoidActive ? 'true' : 'false' }} }">
             <a href="#"
                @click.prevent="processVoidOpen = !processVoidOpen"
@@ -93,8 +93,12 @@
             </a>
             <div x-show="!collapsed && processVoidOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-1" x-transition:enter-end="opacity-100 translate-y-0" class="ml-4 border-l border-white/10 pl-3 space-y-0.5 mt-0.5">
                 <a href="{{ route('process-void-orders.index') }}"
-                   class="flex items-center space-x-2 px-3 py-2 rounded-2xl transition-all duration-200 text-sm {{ $processVoidActive ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/8' }}">
+                   class="flex items-center space-x-2 px-3 py-2 rounded-2xl transition-all duration-200 text-sm {{ request()->routeIs('process-void-orders.*') ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/8' }}">
                     <span class="whitespace-nowrap text-xs">流程单汇总</span>
+                </a>
+                <a href="{{ route('permission-orders.index') }}"
+                   class="flex items-center space-x-2 px-3 py-2 rounded-2xl transition-all duration-200 text-sm {{ request()->routeIs('permission-orders.*') ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/8' }}">
+                    <span class="whitespace-nowrap text-xs">权限单汇总</span>
                 </a>
             </div>
         </div>

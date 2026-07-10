@@ -210,6 +210,19 @@ Route::middleware('auth')->group(function () {
         Route::post('/process-void-orders/{processVoidOrder}/void', [\App\Http\Controllers\ProcessVoidOrderController::class, 'void'])->name('process-void-orders.void');
         Route::post('/process-void-orders/{processVoidOrder}/paper-toggle', [\App\Http\Controllers\ProcessVoidOrderController::class, 'togglePaper'])->name('process-void-orders.togglePaper');
         Route::get('/process-void-orders/{processVoidOrder}/download', [\App\Http\Controllers\ProcessVoidOrderController::class, 'downloadDoc'])->name('process-void-orders.download');
+        Route::get('/process-void-orders/{processVoidOrder}', [\App\Http\Controllers\ProcessVoidOrderController::class, 'show'])->name('process-void-orders.show');
+        // 权限单汇总
+        Route::get('/permission-orders', [\App\Http\Controllers\PermissionOrderController::class, 'index'])->name('permission-orders.index');
+        Route::post('/permission-orders/parse', [\App\Http\Controllers\PermissionOrderController::class, 'parse'])->name('permission-orders.parse');
+        Route::get('/permission-orders/create', [\App\Http\Controllers\PermissionOrderController::class, 'create'])->name('permission-orders.create');
+        Route::post('/permission-orders', [\App\Http\Controllers\PermissionOrderController::class, 'store'])->name('permission-orders.store');
+        Route::get('/permission-orders/{permissionOrder}/edit', [\App\Http\Controllers\PermissionOrderController::class, 'edit'])->name('permission-orders.edit');
+        Route::put('/permission-orders/{permissionOrder}', [\App\Http\Controllers\PermissionOrderController::class, 'update'])->name('permission-orders.update');
+        Route::delete('/permission-orders/{permissionOrder}', [\App\Http\Controllers\PermissionOrderController::class, 'destroy'])->name('permission-orders.destroy');
+        Route::post('/permission-orders/{permissionOrder}/void', [\App\Http\Controllers\PermissionOrderController::class, 'void'])->name('permission-orders.void');
+        Route::post('/permission-orders/{permissionOrder}/paper-toggle', [\App\Http\Controllers\PermissionOrderController::class, 'togglePaper'])->name('permission-orders.togglePaper');
+        Route::get('/permission-orders/{permissionOrder}/download', [\App\Http\Controllers\PermissionOrderController::class, 'downloadDoc'])->name('permission-orders.download');
+        Route::get('/permission-orders/{permissionOrder}', [\App\Http\Controllers\PermissionOrderController::class, 'show'])->name('permission-orders.show');
     });
 
     // 资产详情 — 必须放在所有字面量路由之后
