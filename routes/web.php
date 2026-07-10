@@ -237,6 +237,32 @@ Route::middleware('auth')->group(function () {
         // 耗材报表
         Route::get('/consumable-reports', [\App\Http\Controllers\ConsumableReportController::class, 'index'])->name('consumable-reports.index');
         Route::get('/consumable-reports/export', [\App\Http\Controllers\ConsumableReportController::class, 'export'])->name('consumable-reports.export');
+        // 单据汇总
+        Route::get('/process-void-orders', [\App\Http\Controllers\ProcessVoidOrderController::class, 'index'])->name('process-void-orders.index');
+        Route::post('/process-void-orders/parse', [\App\Http\Controllers\ProcessVoidOrderController::class, 'parse'])->name('process-void-orders.parse');
+        Route::get('/process-void-orders/create', [\App\Http\Controllers\ProcessVoidOrderController::class, 'create'])->name('process-void-orders.create');
+        Route::post('/process-void-orders', [\App\Http\Controllers\ProcessVoidOrderController::class, 'store'])->name('process-void-orders.store');
+        Route::get('/process-void-orders/{processVoidOrder}/edit', [\App\Http\Controllers\ProcessVoidOrderController::class, 'edit'])->name('process-void-orders.edit');
+        Route::put('/process-void-orders/{processVoidOrder}', [\App\Http\Controllers\ProcessVoidOrderController::class, 'update'])->name('process-void-orders.update');
+        Route::delete('/process-void-orders/{processVoidOrder}', [\App\Http\Controllers\ProcessVoidOrderController::class, 'destroy'])->name('process-void-orders.destroy');
+        Route::post('/process-void-orders/{processVoidOrder}/void', [\App\Http\Controllers\ProcessVoidOrderController::class, 'void'])->name('process-void-orders.void');
+        Route::post('/process-void-orders/{processVoidOrder}/paper-toggle', [\App\Http\Controllers\ProcessVoidOrderController::class, 'togglePaper'])->name('process-void-orders.togglePaper');
+        Route::get('/process-void-orders/{processVoidOrder}/download', [\App\Http\Controllers\ProcessVoidOrderController::class, 'downloadDoc'])->name('process-void-orders.download');
+        Route::get('/process-void-orders/{processVoidOrder}', [\App\Http\Controllers\ProcessVoidOrderController::class, 'show'])->name('process-void-orders.show');
+        Route::get('/process-void-orders/export', [\App\Http\Controllers\ProcessVoidOrderController::class, 'exportCsv'])->name('process-void-orders.exportCsv');
+        // 权限单汇总
+        Route::get('/permission-orders', [\App\Http\Controllers\PermissionOrderController::class, 'index'])->name('permission-orders.index');
+        Route::post('/permission-orders/parse', [\App\Http\Controllers\PermissionOrderController::class, 'parse'])->name('permission-orders.parse');
+        Route::get('/permission-orders/create', [\App\Http\Controllers\PermissionOrderController::class, 'create'])->name('permission-orders.create');
+        Route::post('/permission-orders', [\App\Http\Controllers\PermissionOrderController::class, 'store'])->name('permission-orders.store');
+        Route::get('/permission-orders/{permissionOrder}/edit', [\App\Http\Controllers\PermissionOrderController::class, 'edit'])->name('permission-orders.edit');
+        Route::put('/permission-orders/{permissionOrder}', [\App\Http\Controllers\PermissionOrderController::class, 'update'])->name('permission-orders.update');
+        Route::delete('/permission-orders/{permissionOrder}', [\App\Http\Controllers\PermissionOrderController::class, 'destroy'])->name('permission-orders.destroy');
+        Route::post('/permission-orders/{permissionOrder}/void', [\App\Http\Controllers\PermissionOrderController::class, 'void'])->name('permission-orders.void');
+        Route::post('/permission-orders/{permissionOrder}/paper-toggle', [\App\Http\Controllers\PermissionOrderController::class, 'togglePaper'])->name('permission-orders.togglePaper');
+        Route::get('/permission-orders/{permissionOrder}/download', [\App\Http\Controllers\PermissionOrderController::class, 'downloadDoc'])->name('permission-orders.download');
+        Route::get('/permission-orders/{permissionOrder}', [\App\Http\Controllers\PermissionOrderController::class, 'show'])->name('permission-orders.show');
+        Route::get('/permission-orders/export', [\App\Http\Controllers\PermissionOrderController::class, 'exportCsv'])->name('permission-orders.exportCsv');
     });
 
     // 资产详情 — 必须放在所有字面量路由之后
