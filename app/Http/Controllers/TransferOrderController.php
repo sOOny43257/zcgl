@@ -409,6 +409,7 @@ class TransferOrderController extends Controller
         $existingLogIds = TransferOrder::withTrashed()->pluck('log_ids')->flatten()->filter()->toArray();
         $logs = AssetLog::whereIn('field', ['department', 'user'])
             ->whereNotIn('id', $existingLogIds)
+            ->whereNull('reference_no')  // 排除导入模块已生成调拨单的日志
             ->with('asset')->orderBy('created_at', 'desc')->get();
 
         $groups = $logs->groupBy(fn($log) => $log->asset_id . '_' . $log->created_at->format('YmdHis'));
