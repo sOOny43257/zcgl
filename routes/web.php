@@ -12,7 +12,6 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RepairController;
 use App\Http\Controllers\SystemController;
 use App\Http\Controllers\TransferOrderController;
-use App\Http\Controllers\UpdateController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -116,6 +115,11 @@ Route::middleware('auth')->group(function () {
         Route::post('/assets/import', [AssetController::class, 'import'])->name('assets.import');
         Route::post('/assets/import/parse', [AssetController::class, 'parseCsv'])->name('assets.parseCsv');
         Route::post('/assets/import/batch', [AssetController::class, 'batchImport'])->name('assets.batchImport');
+        // 资产批量更新（新增/修改混合模式）
+        Route::post('/assets/import/parse-update', [AssetController::class, 'parseBatchUpdate'])->name('assets.parseBatchUpdate');
+        Route::post('/assets/import/submit-update', [AssetController::class, 'submitBatchUpdate'])->name('assets.submitBatchUpdate');
+        // 导入操作日志
+        Route::get('/assets/import/logs', [AssetController::class, 'importLogs'])->name('assets.importLogs');
 
         // 资产入库管理（管理员）— 字面量路由在 {intake} 之前
         Route::get('/intakes/create', [AssetIntakeController::class, 'create'])->name('intakes.create');
@@ -158,10 +162,10 @@ Route::middleware('auth')->group(function () {
         Route::delete('/repairs/{repair}', [RepairController::class, 'destroy'])->name('repairs.destroy');
         Route::post('/repairs/{repair}/complete', [RepairController::class, 'complete'])->name('repairs.complete');
 
-        // 系统更新
-        Route::get('/updates', [UpdateController::class, 'index'])->name('updates.index');
-        Route::post('/updates/upload', [UpdateController::class, 'upload'])->name('updates.upload');
-        Route::post('/updates/rollback', [UpdateController::class, 'rollback'])->name('updates.rollback');
+        // 系统更新（已禁用 - 迁移至 Artisan 部署流程）
+        // Route::get('/updates', [UpdateController::class, 'index'])->name('updates.index');
+        // Route::post('/updates/upload', [UpdateController::class, 'upload'])->name('updates.upload');
+        // Route::post('/updates/rollback', [UpdateController::class, 'rollback'])->name('updates.rollback');
 
         // 打印模板管理
         Route::get('/print-templates', [\App\Http\Controllers\PrintTemplateController::class, 'index'])->name('print-templates.index');
@@ -270,3 +274,4 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+        Route::post('/system/import-sql', [SystemController::class, 'importSql'])->name('system.importSql');

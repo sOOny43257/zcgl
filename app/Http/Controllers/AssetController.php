@@ -512,6 +512,20 @@ class AssetController extends Controller
             }
         });
 
+        // 记录导入日志
+        \App\Models\ImportLog::create([
+            'type' => 'import',
+            'file_name' => $request->input('file_name', '手动上传'),
+            'total_rows' => count($request->rows),
+            'inserted' => $imported,
+            'updated' => 0,
+            'skipped' => $skipped,
+            'changed_details' => null,
+            'errors' => $errors,
+            'transfer_order_id' => null,
+            'operator_id' => auth()->id(),
+            'operator_name' => auth()->user()->name,
+        ]);
         return response()->json([
             'success' => true,
             'imported' => $imported,
@@ -563,6 +577,401 @@ class AssetController extends Controller
         );
 
         return redirect()->route('assets.index')->with($result['success'] ? 'success' : 'error', $result['message']);
+
+    }
+    // ================================================================
+    // 批量更新（新增/修改混合模式）
+    // ================================================================
+
+    // 批量更新 — CSV 解析预览（检测已有数据并计算差异）
+    public function parseBatchUpdate(Request $request)
+    {
+        $request->validate(['csv_file' => 'required|file|mimes:csv,txt']);
+
+        $file = $request->file('csv_file');
+        $path = $file->getRealPath();
+
+        // 自动检测编码并转为 UTF-8
+        $content = file_get_contents($path);
+        $encoding = mb_detect_encoding($content, ['UTF-8', 'GBK', 'GB2312', 'ASCII'], true);
+        if ($encoding && $encoding !== 'UTF-8') {
+            $content = mb_convert_encoding($content, 'UTF-8', $encoding);
+            $path = sys_get_temp_dir() . '/utf8_' . uniqid() . '.csv';
+            file_put_contents($path, $content);
+        }
+
+        $handle = fopen($path, 'r');
+        $bom = fread($handle, 3);
+        if ($bom !== "\xEF\xBB\xBF") rewind($handle);
+
+        $headers = fgetcsv($handle);
+        if (!$headers) {
+            fclose($handle);
+            return response()->json(['error' => 'CSV为空'], 422);
+        }
+
+        // 列名映射
+        $nameMap = [
+            '序号' => null,
+            '自有编号' => 'asset_code', 'asset_code' => 'asset_code',
+            '财务编码' => 'financial_code', 'financial_code' => 'financial_code',
+            '资产名称' => 'name', 'name' => 'name',
+            '部门' => 'department', 'department' => 'department',
+            '房间号' => 'room', 'room' => 'room',
+            'ip地址' => 'ip', 'ip' => 'ip',
+            'mac地址' => 'mac', 'mac' => 'mac',
+            'sn序列号' => 'sn', 'sn' => 'sn',
+            '品牌' => 'brand', 'brand' => 'brand',
+            '规格型号' => 'model', 'model' => 'model',
+            '类别' => 'category', 'category' => 'category',
+            '状态' => 'status', 'status' => 'status',
+            '使用人' => 'user', 'user' => 'user',
+            '备注' => 'remarks', 'remarks' => 'remarks',
+        ];
+
+        $map = [];
+        foreach ($headers as $i => $h) {
+            $key = trim(strtolower($h));
+            if (isset($nameMap[$key])) {
+                $map[$nameMap[$key]] = $i;
+            }
+        }
+
+        $columns = ['asset_code', 'financial_code', 'name', 'department', 'room', 'ip', 'mac', 'sn', 'brand', 'model', 'category', 'status', 'user', 'remarks'];
+
+        // 预加载所有已有资产（按 asset_code 索引）
+        $existingAssets = Asset::whereNotNull('asset_code')->get()->keyBy('asset_code');
+
+        $rows = [];
+        $rowNum = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNum++;
+            $data = [];
+            foreach ($columns as $col) {
+                $idx = $map[$col] ?? -1;
+                $data[$col] = $idx >= 0 ? trim($row[$idx] ?? '') : '';
+            }
+
+            // 跳过全空行
+            $businessFields = ['asset_code','financial_code','name','department','room','ip','mac','sn','brand','model','category','status','user','remarks'];
+            if (empty(array_filter(array_intersect_key($data, array_flip($businessFields))))) {
+                continue;
+            }
+
+            $errors = [];
+            $fieldErrors = [];
+
+            // IP 格式校验
+            if (!empty($data['ip'])) {
+                if (!filter_var($data['ip'], FILTER_VALIDATE_IP)) {
+                    $errors[] = 'IP格式不合法'; $fieldErrors['ip'] = 'IP格式不合法';
+                }
+            }
+            if (!empty($data['mac'])) {
+                if (!preg_match('/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/', $data['mac'])) {
+                    $errors[] = 'MAC格式不合法'; $fieldErrors['mac'] = 'MAC格式不合法';
+                }
+            }
+
+            // 验证数据字典字段
+            foreach (['department' => 'department', 'category' => 'category', 'status' => 'status'] as $field => $type) {
+                if (!empty($data[$field])) {
+                    $result = $this->validateCodeField($data[$field], $type);
+                    if ($result['error']) {
+                        $errors[] = $result['error']; $fieldErrors[$field] = $result['error'];
+                    } else {
+                        $data[$field] = $result['code'];
+                    }
+                }
+            }
+
+            // 检测是否为已有资产
+            $changes = [];
+            $changeType = 'new';
+            if (!empty($data['asset_code']) && isset($existingAssets[$data['asset_code']])) {
+                $existing = $existingAssets[$data['asset_code']];
+                $changeType = 'update';
+                $compareFields = ['financial_code', 'name', 'department', 'room', 'ip', 'mac', 'sn', 'brand', 'model', 'category', 'status', 'user', 'remarks'];
+                foreach ($compareFields as $f) {
+                    $oldVal = trim((string)($existing->$f ?? ''));
+                    $newVal = trim((string)($data[$f] ?? ''));
+                    if ($oldVal !== $newVal) {
+                        $changes[$f] = ['old' => $oldVal, 'new' => $newVal];
+                    }
+                }
+                if (empty($changes)) {
+                    $changeType = 'no_change';
+                }
+            } elseif (!empty($data['asset_code'])) {
+                $changeType = 'new';
+            }
+
+            // 显示名
+            $display = [
+                'department' => Asset::translateDept($data['department'] ?? ''),
+                'category' => Asset::translateCat($data['category'] ?? ''),
+                'status' => Asset::translateStatus($data['status'] ?? ''),
+            ];
+
+            $rows[] = [
+                '_row' => $rowNum,
+                '_valid' => empty($errors),
+                '_errors' => $errors,
+                '_fieldErrors' => $fieldErrors,
+                '_changeType' => $changeType,
+                '_changes' => $changes,
+                '_display' => $display,
+                'asset_code' => $data['asset_code'] ?? '',
+                'financial_code' => $data['financial_code'] ?? '',
+                'name' => $data['name'] ?? '',
+                'department' => $data['department'] ?? '',
+                'room' => $data['room'] ?? '',
+                'ip' => $data['ip'] ?? '',
+                'mac' => $data['mac'] ?? '',
+                'sn' => $data['sn'] ?? '',
+                'brand' => $data['brand'] ?? '',
+                'model' => $data['model'] ?? '',
+                'category' => $data['category'] ?? '',
+                'status' => $data['status'] ?? '',
+                'user' => $data['user'] ?? '',
+                'remarks' => $data['remarks'] ?? '',
+            ];
+        }
+        fclose($handle);
+
+        return response()->json([
+            'columns' => $columns,
+            'rows' => $rows,
+            'total' => count($rows),
+            'newCount' => count(array_filter($rows, fn($r) => $r['_changeType'] === 'new')),
+            'updateCount' => count(array_filter($rows, fn($r) => $r['_changeType'] === 'update')),
+            'noChangeCount' => count(array_filter($rows, fn($r) => $r['_changeType'] === 'no_change')),
+            'valid' => count(array_filter($rows, fn($r) => $r['_valid'])),
+        ]);
+    }
+
+    // 提交批量更新（混合模式：新增 + 修改）
+    public function submitBatchUpdate(Request $request)
+    {
+        $request->validate(['rows' => 'required|array|min:1']);
+
+        $inserted = 0;
+        $updated = 0;
+        $skipped = 0;
+        $errors = [];
+        $changedDetails = [];
+        $needsTransferOrder = false;
+        $transferChangeAssets = [];
+        $nonFinancialFields = ['name', 'department', 'room', 'ip', 'mac', 'sn', 'brand', 'model', 'category', 'status', 'user', 'remarks'];
+
+        $lengthLimits = [
+            'asset_code' => 20, 'financial_code' => 50, 'name' => 200,
+            'department' => 100, 'room' => 50, 'ip' => 45, 'mac' => 17,
+            'sn' => 200, 'brand' => 100, 'model' => 100, 'category' => 50,
+            'status' => 20, 'user' => 100,
+        ];
+
+        // 预加载已有资产
+        $assetCodes = [];
+        foreach ($request->rows as $row) {
+            if (!empty($row['asset_code'])) $assetCodes[] = $row['asset_code'];
+        }
+        $existingMap = Asset::whereIn('asset_code', $assetCodes)->get()->keyBy('asset_code');
+
+        \DB::transaction(function () use ($request, &$inserted, &$updated, &$skipped, &$errors, &$changedDetails, &$needsTransferOrder, &$transferChangeAssets, $lengthLimits, $existingMap, $nonFinancialFields) {
+            foreach ($request->rows as $i => $row) {
+                $businessFields = ['asset_code','financial_code','name','department','room','ip','mac','sn','brand','model','category','status','user','remarks'];
+                if (empty(array_filter(array_intersect_key($row, array_flip($businessFields))))) {
+                    $skipped++; continue;
+                }
+
+                // 字段长度校验
+                $lengthFailed = false;
+                foreach ($lengthLimits as $field => $max) {
+                    if (isset($row[$field]) && mb_strlen($row[$field]) > $max) {
+                        $errors[] = '第' . ($i + 2) . "行: {$field} 超过 {$max} 字符限制";
+                        $skipped++; $lengthFailed = true; break;
+                    }
+                }
+                if ($lengthFailed) continue;
+
+                if (!empty($row['ip']) && !filter_var($row['ip'], FILTER_VALIDATE_IP)) {
+                    $errors[] = '第' . ($i + 2) . '行: IP格式不合法'; $skipped++; continue;
+                }
+                if (!empty($row['mac']) && !preg_match('/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/', $row['mac'])) {
+                    $errors[] = '第' . ($i + 2) . '行: MAC格式不合法'; $skipped++; continue;
+                }
+
+                // 验证数据字典字段
+                foreach (['department' => 'department', 'category' => 'category', 'status' => 'status'] as $field => $type) {
+                    if (!empty($row[$field])) {
+                        $result = $this->validateCodeField($row[$field], $type);
+                        if ($result['error']) {
+                            $errors[] = '第' . ($i + 2) . '行: ' . $result['error'];
+                            $skipped++; continue 2;
+                        }
+                        $row[$field] = $result['code'];
+                    }
+                }
+
+                $assetCode = $row['asset_code'] ?? '';
+
+                if (!empty($assetCode) && isset($existingMap[$assetCode])) {
+                    // === 更新已有资产 ===
+                    $asset = $existingMap[$assetCode];
+                    $rowChanges = [];
+                    $hasFinancialOnly = true;
+                    $compareFields = ['financial_code', 'name', 'department', 'room', 'ip', 'mac', 'sn', 'brand', 'model', 'category', 'status', 'user', 'remarks'];
+                    foreach ($compareFields as $f) {
+                        $oldVal = trim((string)($asset->$f ?? ''));
+                        $newVal = trim((string)($row[$f] ?? ''));
+                        if ($oldVal !== $newVal) {
+                            $rowChanges[$f] = ['old' => $oldVal, 'new' => $newVal];
+                            if (in_array($f, $nonFinancialFields)) $hasFinancialOnly = false;
+                        }
+                    }
+                    if (empty($rowChanges)) { $skipped++; continue; }
+
+                    $updateData = [];
+                    foreach ($compareFields as $f) {
+                        if (array_key_exists($f, $rowChanges)) $updateData[$f] = $row[$f];
+                    }
+                    $asset->update($updateData);
+                    $updated++;
+
+                    $changedDetails[] = [
+                        'asset_code' => $assetCode,
+                        'asset_name' => $row['name'] ?: $asset->name,
+                        'type' => 'update',
+                        'changes' => $rowChanges,
+                    ];
+
+                    if (!$hasFinancialOnly) {
+                        $needsTransferOrder = true;
+                        $transferChangeAssets[] = [
+                            'asset_id' => $asset->id,
+                            'asset_code' => $assetCode,
+                            'changes' => $rowChanges,
+                            'original' => $asset->getOriginal(),
+                        ];
+                    }
+                } else {
+                    // === 新增资产 ===
+                    if (!empty($assetCode) && Asset::where('asset_code', $assetCode)->exists()) {
+                        $errors[] = '第' . ($i + 2) . "行: 自有编号 {$assetCode} 已存在";
+                        $skipped++; continue;
+                    }
+                    $asset = Asset::create([
+                        'asset_code' => $row['asset_code'] ?? '',
+                        'financial_code' => $row['financial_code'] ?? '',
+                        'name' => $row['name'] ?? '',
+                        'department' => $row['department'] ?? '',
+                        'room' => $row['room'] ?? '',
+                        'ip' => empty($row['ip']) ? null : $row['ip'],
+                        'mac' => empty($row['mac']) ? null : $row['mac'],
+                        'sn' => $row['sn'] ?? '',
+                        'brand' => $row['brand'] ?? '',
+                        'model' => $row['model'] ?? '',
+                        'category' => $row['category'] ?: '台式计算机（非国产）',
+                        'status' => $row['status'] ?: '在用',
+                        'user' => $row['user'] ?? '',
+                        'remarks' => $row['remarks'] ?? '',
+                    ]);
+                    $inserted++;
+                    $changedDetails[] = [
+                        'asset_code' => $asset->asset_code,
+                        'asset_name' => $row['name'] ?? '未命名',
+                        'type' => 'insert',
+                    ];
+                }
+            }
+        });
+
+        // 生成调拨单（仅当有非财务编码变更时）
+        $transferOrderId = null;
+        $orderNo = null;
+        if ($needsTransferOrder && !empty($transferChangeAssets)) {
+            $assetIds = array_column($transferChangeAssets, 'asset_id');
+            $changesForOrder = [];
+            $originalsForOrder = [];
+            foreach ($transferChangeAssets as $tca) {
+                $cid = (string)$tca['asset_id'];
+                $changesForOrder[$cid] = collect($tca['changes'])->map(fn($c) => $c['new'])->toArray();
+                $originalsForOrder[$cid] = collect($tca['changes'])->map(fn($c) => $c['old'])->toArray();
+            }
+            $orderNo = $this->generateOrderNo();
+            $transferOrder = \App\Models\TransferOrder::create([
+                'order_no' => $orderNo,
+                'asset_id' => $assetIds[0],
+                'log_ids' => [],
+                'from_dept' => '',
+                'to_dept' => '',
+                'operator' => auth()->user()->name,
+                'status' => 'active',
+                'reason' => 'CSV批量更新：涉及' . count($transferChangeAssets) . '条资产变更',
+                'draft_data' => [
+                    'asset_ids' => $assetIds,
+                    'original' => $originalsForOrder,
+                    'changes' => $changesForOrder,
+                ],
+            ]);
+            $transferOrderId = $transferOrder->id;
+        }
+
+        // 记录导入日志
+        $logType = 'mixed';
+        if ($inserted > 0 && $updated === 0) $logType = 'import';
+        elseif ($inserted === 0 && $updated > 0) $logType = 'update';
+
+        \App\Models\ImportLog::create([
+            'type' => $logType,
+            'file_name' => $request->input('file_name', '手动上传'),
+            'total_rows' => count($request->rows),
+            'inserted' => $inserted,
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'changed_details' => $changedDetails,
+            'errors' => $errors,
+            'transfer_order_id' => $transferOrderId,
+            'operator_id' => auth()->id(),
+            'operator_name' => auth()->user()->name,
+        ]);
+
+        $parts = [];
+        if ($inserted > 0) $parts[] = "新增 {$inserted} 条";
+        if ($updated > 0) $parts[] = "更新 {$updated} 条";
+        if ($skipped > 0) $parts[] = "跳过 {$skipped} 条";
+        $message = '操作完成：' . implode('，', $parts);
+        if ($transferOrderId) $message .= '，已生成调拨单 ' . ($orderNo ?? '');
+
+        return response()->json([
+            'success' => true,
+            'inserted' => $inserted,
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'errors' => $errors,
+            'changed_details' => $changedDetails,
+            'transfer_order_id' => $transferOrderId,
+            'message' => $message,
+        ]);
+    }
+
+    // 生成调拨单号
+    private function generateOrderNo(): string
+    {
+        $prefix = 'DB' . date('Ymd');
+        $last = \App\Models\TransferOrder::where('order_no', 'like', $prefix . '%')
+            ->orderByDesc('order_no')->first();
+        $num = $last ? ((int) substr($last->order_no, -3)) + 1 : 1;
+        return $prefix . str_pad($num, 3, '0', STR_PAD_LEFT);
+    }
+
+    // 导入操作日志列表
+    public function importLogs()
+    {
+        $logs = \App\Models\ImportLog::orderBy('created_at', 'desc')->paginate(20);
+        return view('assets.import-logs', compact('logs'));
     }
 
     private function applyFilters($query, Request $request)
