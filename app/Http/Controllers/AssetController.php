@@ -1049,27 +1049,55 @@ class AssetController extends Controller
             return back()->with('error', '该导入日志已作废');
         }
 
-        \DB::transaction(function () use ($importLog, $request) {
+        $rollbackCount = 0;
+        $orderNo = null;
+
+        \DB::transaction(function () use ($importLog, &$rollbackCount, &$orderNo) {
+            // 1. 标记导入日志为已作废（记录保留，不删除）
             $importLog->update([
                 'is_cancelled' => true,
                 'cancelled_at' => now(),
             ]);
 
-            // 同步作废关联调拨单
-            if ($importLog->transfer_order_id && $importLog->transferOrder) {
-                $importLog->transferOrder->update([
+            // 2. 作废关联调拨单并回滚资产数据
+            $transfer = $importLog->transferOrder;
+            if ($transfer && !$transfer->is_cancelled) {
+                $orderNo = $transfer->order_no;
+                $draft = $transfer->draft_data ?: [];
+
+                if (!empty($draft['asset_ids'])) {
+                    $batchStart = now();
+                    foreach ($draft['asset_ids'] as $assetId) {
+                        $asset = \App\Models\Asset::find($assetId);
+                        if (!$asset) continue;
+                        $orig = $draft['original'][(string)$assetId] ?? $draft['original'][$assetId] ?? [];
+                        foreach ($orig as $field => $oldValue) {
+                            if ((string)($asset->$field ?? '') === (string)$oldValue) continue;
+                            $asset->$field = $oldValue;
+                            $rollbackCount++;
+                        }
+                        $asset->save();
+                    }
+                    // 给回滚产生的新 AssetLog 设置 reference_no，防止 syncFromLogs 误生成
+                    \App\Models\AssetLog::whereIn('asset_id', $draft['asset_ids'])
+                        ->where('created_at', '>=', $batchStart)
+                        ->update(['reference_no' => $orderNo]);
+                }
+
+                $transfer->update([
+                    'status' => 'cancelled',
                     'is_cancelled' => true,
                     'cancelled_at' => now(),
                 ]);
             }
-
-            // 清除 AssetLog 上回写的单号引用
-            if ($importLog->transferOrder) {
-                \App\Models\AssetLog::where('reference_no', $importLog->transferOrder->order_no)->update(['reference_no' => null]);
-            }
         });
 
-        return back()->with('success', '导入日志已作废' . ($importLog->transfer_order_id ? '，关联调拨单已同步作废' : ''));
+        $msg = '导入日志已作废（记录保留）';
+        if ($orderNo) {
+            $msg .= '，调拨单 ' . $orderNo . ' 已作废并回滚 ' . $rollbackCount . ' 项数据变更';
+        }
+
+        return back()->with('success', $msg);
     }
 
     private function applyFilters($query, Request $request)

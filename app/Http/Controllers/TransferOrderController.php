@@ -421,6 +421,37 @@ class TransferOrderController extends Controller
             return back()->with('error', '该调拨单已经作废');
         }
 
+        // 导入生成的调拨单（有 draft_data）：回滚资产数据到原始值
+        $draft = $transfer->draft_data ?: [];
+        if (!empty($draft['asset_ids'])) {
+            $batchStart = now();
+            $changes = [];
+            foreach ($draft['asset_ids'] as $assetId) {
+                $asset = Asset::find($assetId);
+                if (!$asset) continue;
+                $orig = $draft['original'][(string)$assetId] ?? $draft['original'][$assetId] ?? [];
+                foreach ($orig as $field => $oldValue) {
+                    if ((string)($asset->$field ?? '') === (string)$oldValue) continue;
+                    $changes[] = "{$asset->asset_code} {$field}: {$asset->$field} -> {$oldValue}";
+                    $asset->$field = $oldValue;
+                }
+                $asset->save();
+            }
+            // 给回滚产生的新 AssetLog 设置 reference_no，防止 syncFromLogs 误生成
+            AssetLog::whereIn('asset_id', $draft['asset_ids'])
+                ->where('created_at', '>=', $batchStart)
+                ->update(['reference_no' => $transfer->order_no]);
+
+            $transfer->update([
+                'status' => 'cancelled',
+                'is_cancelled' => true,
+                'cancelled_at' => now(),
+            ]);
+
+            return redirect()->route('transfers.index')
+                ->with('success', "调拨单 {$transfer->order_no} 已作废并回滚 " . count($changes) . " 项数据变更");
+        }
+
         $asset = Asset::findOrFail($transfer->asset_id);
         $logs = AssetLog::whereIn('id', $transfer->log_ids ?? [])->get();
         $changes = [];

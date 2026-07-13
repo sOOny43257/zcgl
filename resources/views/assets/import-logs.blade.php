@@ -58,7 +58,7 @@
                     <span class="text-xs text-gray-400">{{ $log->file_name }}</span>
                     @if(!$log->is_cancelled)
                     <form method="POST" action="{{ route('assets.voidImportLog', $log) }}"
-                          onsubmit="return confirm('确定作废此导入日志？关联调拨单将同步作废。资产数据本身不会被还原。');">
+                          onsubmit="return confirm('确定作废？将作废关联调拨单并回滚资产数据到原始值，导入日志记录保留并标记为已作废。');">
                         @csrf
                         <button type="submit" class="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors">作废</button>
                     </form>
