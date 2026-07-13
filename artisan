@@ -1,6 +1,9 @@
 #!/usr/bin/env php
 <?php
 
+// XAMPP: 统一 umask，CLI 创建的缓存/视图对 Apache(daemon) 可写
+umask(0000);
+
 define('LARAVEL_START', microtime(true));
 
 /*

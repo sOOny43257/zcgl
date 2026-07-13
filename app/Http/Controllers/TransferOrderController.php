@@ -44,6 +44,7 @@ class TransferOrderController extends Controller
             'mac' => 'MAC地址', 'sn' => 'SN序列号', 'brand' => '品牌',
             'model' => '规格型号', 'category' => '类别', 'user' => '使用人',
             'status' => '状态', 'remarks' => '备注',
+            'financial_code' => '财务编码',
         ];
 
         $transfers->getCollection()->transform(function ($t) use ($labelMap) {
@@ -265,6 +266,7 @@ class TransferOrderController extends Controller
             'mac' => 'MAC地址', 'sn' => 'SN序列号', 'brand' => '品牌',
             'model' => '规格型号', 'category' => '类别', 'user' => '使用人',
             'status' => '状态', 'remarks' => '备注',
+            'financial_code' => '财务编码',
         ];
 
         foreach ($assetIds as $id) {
@@ -305,6 +307,7 @@ class TransferOrderController extends Controller
             'mac' => 'MAC地址', 'sn' => 'SN序列号', 'brand' => '品牌',
             'model' => '规格型号', 'category' => '类别', 'user' => '使用人',
             'status' => '状态', 'remarks' => '备注',
+            'financial_code' => '财务编码',
         ];
 
         $items = [];

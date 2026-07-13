@@ -46,7 +46,17 @@ class AssetController extends Controller
             }
         }
 
-        return view('assets.show', compact('asset', 'logs', 'logToOrder', 'repairs'));
+        // 构建 order_no → transfer_order_id 的映射（用于变更历史展示调拨单链接）
+        $relevantOrderNos = $logs->pluck('reference_no')->filter()->unique()
+            ->merge(collect($logToOrder)->values())
+            ->unique()->values()->all();
+        $refOrderMap = [];
+        if (!empty($relevantOrderNos)) {
+            $refOrderMap = \App\Models\TransferOrder::whereIn('order_no', $relevantOrderNos)
+                ->pluck('id', 'order_no')->all();
+        }
+
+        return view('assets.show', compact('asset', 'logs', 'logToOrder', 'refOrderMap', 'repairs'));
     }
 
     public function edit(Asset $asset)
@@ -525,6 +535,8 @@ class AssetController extends Controller
             'transfer_order_id' => null,
             'operator_id' => auth()->id(),
             'operator_name' => auth()->user()->name,
+            'operator' => trim((string) $request->input('operator', '')) ?: auth()->user()->name,
+            'import_reason' => trim((string) $request->input('import_reason', '')),
         ]);
         return response()->json([
             'success' => true,
@@ -756,6 +768,11 @@ class AssetController extends Controller
     {
         $request->validate(['rows' => 'required|array|min:1']);
 
+        // 批次起始时间，用于事后回写 AssetLog.reference_no
+        $batchStart = now();
+        $manualOperator = trim((string) $request->input('operator', ''));
+        $importReason = trim((string) $request->input('import_reason', ''));
+
         $inserted = 0;
         $updated = 0;
         $skipped = 0;
@@ -847,14 +864,16 @@ class AssetController extends Controller
                         'changes' => $rowChanges,
                     ];
 
+                    // 所有有变更的资产都纳入调拨单数据（含纯财务编码变更），
+                    // 使打印条数与变更明细一致；仅当存在非财务字段变更时才生成调拨单
+                    $transferChangeAssets[] = [
+                        'asset_id' => $asset->id,
+                        'asset_code' => $assetCode,
+                        'changes' => $rowChanges,
+                        'original' => $asset->getOriginal(),
+                    ];
                     if (!$hasFinancialOnly) {
                         $needsTransferOrder = true;
-                        $transferChangeAssets[] = [
-                            'asset_id' => $asset->id,
-                            'asset_code' => $assetCode,
-                            'changes' => $rowChanges,
-                            'original' => $asset->getOriginal(),
-                        ];
                     }
                 } else {
                     // === 新增资产 ===
@@ -919,6 +938,13 @@ class AssetController extends Controller
             $transferOrderId = $transferOrder->id;
         }
 
+        // 回写 AssetLog.reference_no，使资产变更历史能看到调拨单号
+        if ($orderNo) {
+            \App\Models\AssetLog::whereIn('asset_id', $assetIds)
+                ->where('created_at', '>=', $batchStart)
+                ->update(['reference_no' => $orderNo]);
+        }
+
         // 记录导入日志
         $logType = 'mixed';
         if ($inserted > 0 && $updated === 0) $logType = 'import';
@@ -936,6 +962,8 @@ class AssetController extends Controller
             'transfer_order_id' => $transferOrderId,
             'operator_id' => auth()->id(),
             'operator_name' => auth()->user()->name,
+            'operator' => $manualOperator ?: auth()->user()->name,
+            'import_reason' => $importReason,
         ]);
 
         $parts = [];
@@ -968,10 +996,68 @@ class AssetController extends Controller
     }
 
     // 导入操作日志列表
-    public function importLogs()
+    public function importLogs(Request $request)
     {
-        $logs = \App\Models\ImportLog::orderBy('created_at', 'desc')->paginate(20);
+        $query = \App\Models\ImportLog::query();
+
+        // 按日期筛选
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        // 按单号/文件名/操作人搜索
+        if ($search = trim((string) $request->input('search', ''))) {
+            $query->where(function ($q) use ($search) {
+                $q->where('file_name', 'like', "%{$search}%")
+                  ->orWhere('operator_name', 'like', "%{$search}%")
+                  ->orWhere('operator', 'like', "%{$search}%")
+                  ->orWhere('import_reason', 'like', "%{$search}%")
+                  ->orWhereHas('transferOrder', function ($tq) use ($search) {
+                      $tq->where('order_no', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        // 默认隐藏已作废的（可传 show_cancelled=1 查看）
+        if (!$request->boolean('show_cancelled')) {
+            $query->where('is_cancelled', false);
+        }
+
+        $logs = $query->orderBy('created_at', 'desc')->paginate(20)->withQueryString();
         return view('assets.import-logs', compact('logs'));
+    }
+
+    // 作废导入日志（同步作废关联调拨单）
+    public function voidImportLog(Request $request, \App\Models\ImportLog $importLog)
+    {
+        if ($importLog->is_cancelled) {
+            return back()->with('error', '该导入日志已作废');
+        }
+
+        \DB::transaction(function () use ($importLog, $request) {
+            $importLog->update([
+                'is_cancelled' => true,
+                'cancelled_at' => now(),
+            ]);
+
+            // 同步作废关联调拨单
+            if ($importLog->transfer_order_id && $importLog->transferOrder) {
+                $importLog->transferOrder->update([
+                    'is_cancelled' => true,
+                    'cancelled_at' => now(),
+                ]);
+            }
+
+            // 清除 AssetLog 上回写的单号引用
+            if ($importLog->transferOrder) {
+                \App\Models\AssetLog::where('reference_no', $importLog->transferOrder->order_no)->update(['reference_no' => null]);
+            }
+        });
+
+        return back()->with('success', '导入日志已作废' . ($importLog->transfer_order_id ? '，关联调拨单已同步作废' : ''));
     }
 
     private function applyFilters($query, Request $request)

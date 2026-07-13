@@ -36,6 +36,26 @@
             </div>
         </div>
 
+        <!-- 补充信息 -->
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-100/50 p-6 mb-6">
+            <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center">
+                <span class="w-7 h-7 bg-blue-600 text-white rounded-xl inline-flex items-center justify-center text-xs mr-2">＋</span>
+                补充信息
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="text-sm text-gray-600 mb-1 block">操作人</label>
+                    <input type="text" x-model="operator" placeholder="实际执行操作人姓名（留空则用登录用户）"
+                           class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-600 mb-1 block">导入原因</label>
+                    <input type="text" x-model="importReason" placeholder="如：补充财务编码 / 年度盘点核对"
+                           class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300">
+                </div>
+            </div>
+        </div>
+
         <!-- 步骤2: 预览编辑 -->
         <div x-show="rows.length > 0" class="bg-white rounded-3xl shadow-sm border border-gray-100/50 p-6 mb-6" x-cloak>
             <h3 class="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
@@ -247,6 +267,8 @@ function importer() {
         newCount: 0,
         updateCount: 0,
         noChangeCount: 0,
+        operator: '',
+        importReason: '',
 
         get validCount() {
             return this.rows.filter(r => r._valid && r._changeType !== 'no_change').length;
@@ -358,7 +380,7 @@ function importer() {
                 const res = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content, 'Accept': 'application/json' },
-                    body: JSON.stringify({ rows: payload, file_name: '手动上传' })
+                    body: JSON.stringify({ rows: payload, file_name: '手动上传', operator: this.operator, import_reason: this.importReason })
                 });
                 this.result = await res.json();
             } catch(e) {

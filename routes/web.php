@@ -120,6 +120,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/assets/import/submit-update', [AssetController::class, 'submitBatchUpdate'])->name('assets.submitBatchUpdate');
         // 导入操作日志
         Route::get('/assets/import/logs', [AssetController::class, 'importLogs'])->name('assets.importLogs');
+        Route::post('/assets/import/logs/{importLog}/void', [AssetController::class, 'voidImportLog'])->name('assets.voidImportLog');
 
         // 资产入库管理（管理员）— 字面量路由在 {intake} 之前
         Route::get('/intakes/create', [AssetIntakeController::class, 'create'])->name('intakes.create');

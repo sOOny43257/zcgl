@@ -3,6 +3,8 @@
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request;
 
+// XAMPP: Apache(daemon) 与 CLI(xiang) 共写 storage，统一 umask 避免权限冲突
+umask(0000);
 // 自动创建必需的缓存目录（安装向导需要）
 foreach ([
     __DIR__.'/../storage/framework/cache',

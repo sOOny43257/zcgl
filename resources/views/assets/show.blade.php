@@ -243,10 +243,11 @@
                                     <div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-sm">
                                         <span class="font-medium text-gray-800">{{ $log->user_name }}</span>
                                         <span class="text-gray-400 text-xs">{{ $log->created_at->format('Y-m-d H:i') }}</span>
-                                        @if(isset($logToOrder[$log->id]))
-                                        <a href="{{ route('transfers.show', \App\Models\TransferOrder::where('asset_id', $asset->id)->whereJsonContains('log_ids', $log->id)->first()) }}"
+                                        @php $refNo = $log->reference_no ?: ($logToOrder[$log->id] ?? null); @endphp
+                                        @if($refNo && isset($refOrderMap[$refNo]))
+                                        <a href="{{ route('transfers.show', $refOrderMap[$refNo]) }}"
                                            class="inline-flex items-center px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium hover:bg-blue-100 no-underline">
-                                            调拨单: {{ $logToOrder[$log->id] }}
+                                            调拨单: {{ $refNo }}
                                         </a>
                                         @endif
                                     </div>

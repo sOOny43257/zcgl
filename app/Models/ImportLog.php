@@ -19,11 +19,17 @@ class ImportLog extends Model
         'transfer_order_id',
         'operator_id',
         'operator_name',
+        'operator',
+        'import_reason',
+        'is_cancelled',
+        'cancelled_at',
     ];
 
     protected $casts = [
         'changed_details' => 'array',
         'errors' => 'array',
+        'is_cancelled' => 'boolean',
+        'cancelled_at' => 'datetime',
     ];
 
     public function operator(): BelongsTo

@@ -16,6 +16,7 @@ class AssetLog extends Model
         'field_label',
         'old_value',
         'new_value',
+        'reference_no',
         'created_at',
     ];
 

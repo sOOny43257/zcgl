@@ -6,20 +6,64 @@
         </div>
     </x-slot>
 
+    {{-- 搜索筛选栏 --}}
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-100/50 p-4 mb-4">
+        <form method="GET" action="{{ route('assets.importLogs') }}" class="flex flex-wrap items-end gap-3">
+            <div class="flex flex-col">
+                <label class="text-xs text-gray-500 mb-1">开始日期</label>
+                <input type="date" name="date_from" value="{{ request('date_from') }}"
+                       class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+            </div>
+            <div class="flex flex-col">
+                <label class="text-xs text-gray-500 mb-1">结束日期</label>
+                <input type="date" name="date_to" value="{{ request('date_to') }}"
+                       class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+            </div>
+            <div class="flex flex-col flex-1 min-w-[200px]">
+                <label class="text-xs text-gray-500 mb-1">搜索（单号 / 文件名 / 操作人 / 原因）</label>
+                <input type="text" name="search" value="{{ request('search') }}" placeholder="输入关键词…"
+                       class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+            </div>
+            <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
+                <input type="checkbox" name="show_cancelled" value="1" {{ request('show_cancelled') ? 'checked' : '' }}
+                       class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                含已作废
+            </label>
+            <button type="submit" class="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors">查询</button>
+            <a href="{{ route('assets.importLogs') }}" class="px-4 py-2 bg-gray-100 text-gray-600 text-sm rounded-xl hover:bg-gray-200 transition-colors">重置</a>
+        </form>
+    </div>
+
     <div class="space-y-4">
         @forelse($logs as $log)
-        <div class="bg-white rounded-3xl shadow-sm border border-gray-100/50 p-5">
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-100/50 p-5 {{ $log->is_cancelled ? 'opacity-60' : '' }}">
             <div class="flex items-center justify-between mb-3">
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 flex-wrap">
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold
                         {{ $log->type === 'import' ? 'bg-emerald-100 text-emerald-700' : ($log->type === 'update' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700') }}">
                         {{ $log->type === 'import' ? '纯新增' : ($log->type === 'update' ? '纯更新' : '混合') }}
                     </span>
+                    @if($log->is_cancelled)
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-600">已作废</span>
+                    @endif
                     <span class="text-sm text-gray-500">{{ $log->created_at->format('Y-m-d H:i:s') }}</span>
                     <span class="text-sm text-gray-400">|</span>
-                    <span class="text-sm text-gray-600">{{ $log->operator_name ?? '系统' }}</span>
+                    <span class="text-sm text-gray-600">{{ $log->operator ?? $log->operator_name ?? '系统' }}</span>
+                    @if($log->import_reason)
+                    <span class="text-xs text-gray-400">·</span>
+                    <span class="text-xs text-gray-500">{{ $log->import_reason }}</span>
+                    @endif
                 </div>
-                <div class="text-xs text-gray-400">{{ $log->file_name }}</div>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-gray-400">{{ $log->file_name }}</span>
+                    @if(!$log->is_cancelled)
+                    <form method="POST" action="{{ route('assets.voidImportLog', $log) }}"
+                          onsubmit="return confirm('确定作废此导入日志？关联调拨单将同步作废。资产数据本身不会被还原。');">
+                        @csrf
+                        <button type="submit" class="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors">作废</button>
+                    </form>
+                    @endif
+                </div>
             </div>
 
             <div class="grid grid-cols-4 gap-4 mb-3">
@@ -74,7 +118,7 @@
                                         <div class="space-y-0.5">
                                             @foreach($detail['changes'] as $field => $chg)
                                             <span class="inline-block bg-white border border-gray-200 rounded px-1.5 py-0.5 mr-1 mb-0.5">
-                                                <span class="text-gray-500">{{ \App\Models\Asset::TRACKED_FIELDS[$field] ?? $field }}:</span>
+                                                <span class="text-gray-500">{{ \App\Models\Asset::TRACKED_FIELDS[$field] ?? ($field === 'financial_code' ? '财务编码' : $field) }}:</span>
                                                 <span class="line-through text-red-400">{{ $chg['old'] ?: '∅' }}</span>
                                                 <span class="text-gray-300 mx-0.5">→</span>
                                                 <span class="text-green-600 font-medium">{{ $chg['new'] ?: '∅' }}</span>
@@ -101,6 +145,9 @@
                 <a href="{{ route('transfers.show', $log->transferOrder) }}" class="text-blue-600 hover:text-blue-800 font-medium">
                     {{ $log->transferOrder->order_no ?? '#' . $log->transfer_order_id }}
                 </a>
+                @if($log->transferOrder && $log->transferOrder->is_cancelled)
+                <span class="text-red-500 ml-1">(已作废)</span>
+                @endif
             </div>
             @endif
 
