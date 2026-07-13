@@ -1001,7 +1001,7 @@ class AssetController extends Controller
     private function generateOrderNo(): string
     {
         $prefix = 'DB' . date('Ymd');
-        $last = \App\Models\TransferOrder::where('order_no', 'like', $prefix . '%')
+        $last = \App\Models\TransferOrder::withTrashed()->where('order_no', 'like', $prefix . '%')
             ->orderByDesc('order_no')->first();
         $num = $last ? ((int) substr($last->order_no, -3)) + 1 : 1;
         return $prefix . str_pad($num, 3, '0', STR_PAD_LEFT);

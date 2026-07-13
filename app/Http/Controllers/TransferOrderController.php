@@ -209,7 +209,7 @@ class TransferOrderController extends Controller
     {
         $today = now()->format('Ymd');
         $prefix = 'DB-' . $today . '-';
-        $last = TransferOrder::where('order_no', 'like', $prefix . '%')
+        $last = TransferOrder::withTrashed()->where('order_no', 'like', $prefix . '%')
             ->orderBy('order_no', 'desc')
             ->value('order_no');
         $count = $last ? (int) substr($last, -3) + 1 : 1;
