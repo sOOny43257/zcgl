@@ -252,15 +252,9 @@ class TransferOrderController extends Controller
         $transfer->save();
     }
 
+
     public function show(TransferOrder $transferOrder)
     {
-        $draft = $transferOrder->draft_data;
-        $assetIds = $draft['asset_ids'] ?? [$transferOrder->asset_id];
-        $assets = Asset::whereIn('id', $assetIds)->get()->keyBy('id');
-        $changes = $draft['changes'] ?? [];
-        $originals = $draft['original'] ?? []; // 草稿创建时的快照
-
-        $items = [];
         $labelMap = [
             'department' => '部门', 'room' => '房间号', 'ip' => 'IP地址',
             'mac' => 'MAC地址', 'sn' => 'SN序列号', 'brand' => '品牌',
@@ -269,25 +263,55 @@ class TransferOrderController extends Controller
             'financial_code' => '财务编码',
         ];
 
-        foreach ($assetIds as $id) {
-            $asset = $assets[$id] ?? null;
-            if (!$asset) continue;
-            $row = ['asset' => $asset, 'changes' => []];
-            $ac = $changes[(string)$id] ?? $changes[$id] ?? [];
-            $orig = $originals[(string)$id] ?? $originals[$id] ?? [];
-            foreach ($ac as $field => $newValue) {
-                if ($newValue === null || $newValue === '') continue;
-                // 从草稿快照取原始值（因为资产已被 applyChanges 更新）
-                $oldValue = $orig[$field] ?? ($asset->$field ?? '');
-                if ((string)$oldValue === (string)$newValue) continue;
-                $row['changes'][] = [
-                    'field' => $field,
-                    'label' => $labelMap[$field] ?? $field,
-                    'old' => $oldValue,
-                    'new' => $newValue,
-                ];
+        $draft = $transferOrder->draft_data;
+        $items = [];
+
+        if (!empty($draft['asset_ids'])) {
+            // 导入生成的调拨单：从 draft_data 快照构建
+            $assetIds = $draft['asset_ids'];
+            $assets = Asset::whereIn('id', $assetIds)->get()->keyBy('id');
+            $changes = $draft['changes'] ?? [];
+            $originals = $draft['original'] ?? [];
+
+            foreach ($assetIds as $id) {
+                $asset = $assets[$id] ?? null;
+                if (!$asset) continue;
+                $row = ['asset' => $asset, 'changes' => []];
+                $ac = $changes[(string)$id] ?? $changes[$id] ?? [];
+                $orig = $originals[(string)$id] ?? $originals[$id] ?? [];
+                foreach ($ac as $field => $newValue) {
+                    if ($newValue === null || $newValue === '') continue;
+                    $oldValue = $orig[$field] ?? ($asset->$field ?? '');
+                    if ((string)$oldValue === (string)$newValue) continue;
+                    $row['changes'][] = [
+                        'field' => $field,
+                        'label' => $labelMap[$field] ?? $field,
+                        'old' => $oldValue,
+                        'new' => $newValue,
+                    ];
+                }
+                $items[] = $row;
             }
-            $items[] = $row;
+        } elseif (!empty($transferOrder->log_ids)) {
+            // syncFromLogs 自动生成的调拨单：从 AssetLog 构建
+            $logs = AssetLog::whereIn('id', $transferOrder->log_ids)->with('asset')->get();
+            foreach ($logs->groupBy('asset_id') as $assetId => $assetLogs) {
+                $asset = $assetLogs->first()?->asset;
+                if (!$asset) continue;
+                $row = ['asset' => $asset, 'changes' => []];
+                foreach ($assetLogs as $log) {
+                    $row['changes'][] = [
+                        'field' => $log->field,
+                        'label' => $log->field_label ?? $labelMap[$log->field] ?? $log->field,
+                        'old' => $log->old_value,
+                        'new' => $log->new_value,
+                    ];
+                }
+                $items[] = $row;
+            }
+        } else {
+            $asset = Asset::find($transferOrder->asset_id);
+            if ($asset) $items[] = ['asset' => $asset, 'changes' => []];
         }
 
         return view('transfers.show', compact('transferOrder', 'items'));
@@ -333,6 +357,30 @@ class TransferOrderController extends Controller
                 ];
             }
             $items[] = $row;
+        }
+
+        // 无 draft_data 但有 log_ids（syncFromLogs 自动生成）：从 AssetLog 重建
+        if (empty($draft['asset_ids']) && !empty($transferOrder->log_ids)) {
+            $items = [];
+            $logs = AssetLog::whereIn('id', $transferOrder->log_ids)->with('asset')->get();
+            foreach ($logs->groupBy('asset_id') as $assetId => $assetLogs) {
+                $asset = $assetLogs->first()?->asset;
+                if (!$asset) continue;
+                $row = [
+                    'asset_code' => $asset->asset_code,
+                    'financial_code' => $asset->financial_code,
+                    'name' => $asset->name,
+                    'changes' => [],
+                ];
+                foreach ($assetLogs as $log) {
+                    $row['changes'][] = [
+                        'label' => $log->field_label ?? $labelMap[$log->field] ?? $log->field,
+                        'old' => $this->translateField($log->field, $log->old_value),
+                        'new' => $this->translateField($log->field, $log->new_value),
+                    ];
+                }
+                $items[] = $row;
+            }
         }
 
         return response()->json([
