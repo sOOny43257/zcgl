@@ -387,6 +387,13 @@ function importer() {
                 this.result = { success: false, message: '提交失败' };
             }
             this.submitting = false;
+            // 提交成功后清空数据，防止重复提交产生空记录
+            if (this.result && this.result.success) {
+                this.rows = [];
+                this.newCount = 0;
+                this.updateCount = 0;
+                this.noChangeCount = 0;
+            }
         }
     };
 }

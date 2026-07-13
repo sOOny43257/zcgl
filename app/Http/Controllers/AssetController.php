@@ -950,6 +950,18 @@ class AssetController extends Controller
         if ($inserted > 0 && $updated === 0) $logType = 'import';
         elseif ($inserted === 0 && $updated > 0) $logType = 'update';
 
+        // 没有实际新增或更新时（如重复提交导致全部跳过），不记录空日志
+        if ($inserted === 0 && $updated === 0) {
+            return response()->json([
+                'success' => true,
+                'inserted' => 0,
+                'updated' => 0,
+                'skipped' => $skipped,
+                'errors' => $errors,
+                'message' => '没有需要处理的数据（所有行均无变化或已跳过）',
+            ]);
+        }
+
         \App\Models\ImportLog::create([
             'type' => $logType,
             'file_name' => $request->input('file_name', '手动上传'),
