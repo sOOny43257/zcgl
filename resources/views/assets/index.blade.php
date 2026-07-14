@@ -146,21 +146,21 @@
                         <tr>
                             <th class="px-3 py-2.5 text-center text-xs font-medium text-gray-500 w-10">#</th>
                             <template x-for="col in columns" :key="col.field">
-                                <th x-show="col.visible" class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 cursor-pointer hover:text-gray-700 select-none"
+                                <th x-show="col.visible" class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 cursor-pointer hover:text-gray-700 select-none whitespace-nowrap"
                                     @click="toggleSort(col)">
                                     <span x-text="col.label"></span>
                                     <span x-show="sortField === col.field" x-text="sortDir === 'asc' ? ' ↑' : ' ↓'" class="text-blue-500"></span>
                                 </th>
                             </template>
-                            <th class="px-3 py-2.5 text-left text-xs font-medium text-gray-500">操作</th>
+                            <th class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 whitespace-nowrap sticky right-0 bg-gray-50 z-10">操作</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-50">
                         <template x-for="(a, idx) in assets" :key="a.id">
-                            <tr class="hover:bg-gray-50/50 text-sm">
+                            <tr class="group hover:bg-gray-50/50 text-sm">
                                 <td class="px-3 py-2 text-center text-xs text-gray-400" x-text="(page-1)*perPage + idx + 1"></td>
                                 <template x-for="col in columns" :key="col.field">
-                                    <td x-show="col.visible" class="px-3 py-2">
+                                    <td x-show="col.visible" class="px-3 py-2 whitespace-nowrap">
                                         <template x-if="col.field === 'name'">
                                             <a :href="APP_URL + '/assets/' + a.id" class="text-blue-600 hover:underline" x-text="a[col.field] || '-'"></a>
                                         </template>
@@ -168,7 +168,9 @@
                                             <span class="font-mono font-medium text-gray-800" x-text="a.asset_code"></span>
                                         </template>
                                         <template x-if="col.field === 'financial_code'">
-                                            <span class="font-mono text-gray-500" x-text="a.financial_code || '-'"></span>
+                                            <span class="font-mono text-gray-500 cursor-help"
+                                                  :title="a.financial_code || ''"
+                                                  x-text="a.financial_code ? (a.financial_code.length > 14 ? a.financial_code.slice(0,6) + '…' + a.financial_code.slice(-8) : a.financial_code) : '-'"></span>
                                         </template>
                                         <template x-if="col.field === 'ip' || col.field === 'mac'">
                                             <span class="font-mono text-xs text-gray-600" x-text="a[col.field] || '-'"></span>
@@ -187,8 +189,8 @@
                                         </template>
                                     </td>
                                 </template>
-                                <td class="px-3 py-2">
-                                    <div class="flex gap-2 text-xs whitespace-nowrap">
+                                <td class="px-3 py-2 sticky right-0 bg-white group-hover:bg-gray-50 z-10 whitespace-nowrap">
+                                    <div class="flex gap-2 text-xs">
                                         <a :href="APP_URL + '/assets/' + a.id" class="text-blue-600 hover:underline">查看</a>
                                         @if(auth()->user()->isAdmin())
                                         <a :href="APP_URL + '/assets/' + a.id + '/edit'" class="text-indigo-600 hover:underline">编辑</a>
