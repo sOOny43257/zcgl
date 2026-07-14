@@ -1,4 +1,52 @@
 <x-app-layout>
+@push('head')
+<style>
+    /* 固定列背景 */
+    .pin-l { position: sticky; z-index: 20; background-color: #fff; }
+    .pin-l-th { position: sticky; z-index: 30; background-color: #f9fafb; }
+    thead tr:hover .pin-l-th { background-color: #f3f4f6; }
+    tbody tr:hover .pin-l { background-color: #f9fafb; }
+    .pin-r { position: sticky; right: 0; z-index: 20; background-color: #fff; }
+    .pin-r-th { position: sticky; right: 0; z-index: 30; background-color: #f9fafb; }
+    tbody tr:hover .pin-r { background-color: #f9fafb; }
+    /* 固定列阴影 */
+    .pin-shadow-r { box-shadow: 3px 0 5px -2px rgba(0,0,0,0.1); }
+    .pin-shadow-l { box-shadow: -3px 0 5px -2px rgba(0,0,0,0.1); }
+    /* 财务编码 CSS tooltip */
+    .fc-tip { position: relative; }
+    .fc-tip:hover::after {
+        content: attr(data-full);
+        position: absolute;
+        bottom: calc(100% + 4px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: #1f2937;
+        color: #fff;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-family: monospace;
+        white-space: nowrap;
+        z-index: 100;
+        pointer-events: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .fc-tip:hover::before {
+        content: '';
+        position: absolute;
+        bottom: calc(100% + 0px);
+        left: 50%;
+        transform: translateX(-50%);
+        border: 4px solid transparent;
+        border-top-color: #1f2937;
+        z-index: 100;
+        pointer-events: none;
+    }
+    /* 列拖拽 */
+    th.dragging { opacity: 0.4; }
+    th.drag-over { background: #dbeafe !important; }
+</style>
+@endpush
     <x-slot name="header">
         <div class="flex items-center justify-between flex-wrap gap-2">
             <h2 class="text-xl font-semibold text-gray-800">资产管理</h2>
@@ -141,26 +189,36 @@
             </div>
 
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-100">
+                <table x-ref="table" class="min-w-max divide-y divide-gray-100 border-separate border-spacing-0">
                     <thead class="bg-gray-50/50">
                         <tr>
-                            <th class="px-3 py-2.5 text-center text-xs font-medium text-gray-500 w-10">#</th>
+                            <th class="pin-l-th px-3 py-2.5 text-center text-xs font-medium text-gray-500 w-12" style="left:0">序号</th>
                             <template x-for="col in columns" :key="col.field">
-                                <th x-show="col.visible" class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 cursor-pointer hover:text-gray-700 select-none whitespace-nowrap"
+                                <th x-show="col.visible"
+                                    class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 cursor-pointer hover:text-gray-700 select-none whitespace-nowrap"
+                                    :class="pinnedLeftFields.includes(col.field) ? 'pin-l-th pin-shadow-r' : ''"
+                                    :style="stickyLeftStyle(col.field)"
+                                    draggable="true"
+                                    @dragstart="onDragStart(col.field, $event)"
+                                    @dragover.prevent="onDragOver(col.field, $event)"
+                                    @drop="onDrop(col.field)"
+                                    @dragend="dragSrcField = null"
                                     @click="toggleSort(col)">
                                     <span x-text="col.label"></span>
                                     <span x-show="sortField === col.field" x-text="sortDir === 'asc' ? ' ↑' : ' ↓'" class="text-blue-500"></span>
                                 </th>
                             </template>
-                            <th class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 whitespace-nowrap sticky right-0 bg-gray-50 z-10">操作</th>
+                            <th class="pin-r-th pin-shadow-l px-3 py-2.5 text-left text-xs font-medium text-gray-500 whitespace-nowrap">操作</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-50">
                         <template x-for="(a, idx) in assets" :key="a.id">
                             <tr class="group hover:bg-gray-50/50 text-sm">
-                                <td class="px-3 py-2 text-center text-xs text-gray-400" x-text="(page-1)*perPage + idx + 1"></td>
+                                <td class="pin-l pin-shadow-r px-3 py-2 text-center text-xs text-gray-400" style="left:0" x-text="(page-1)*perPage + idx + 1"></td>
                                 <template x-for="col in columns" :key="col.field">
-                                    <td x-show="col.visible" class="px-3 py-2 whitespace-nowrap">
+                                    <td x-show="col.visible" class="px-3 py-2 whitespace-nowrap"
+                                        :class="pinnedLeftFields.includes(col.field) ? 'pin-l pin-shadow-r' : ''"
+                                        :style="stickyLeftStyle(col.field)">
                                         <template x-if="col.field === 'name'">
                                             <a :href="APP_URL + '/assets/' + a.id" class="text-blue-600 hover:underline" x-text="a[col.field] || '-'"></a>
                                         </template>
@@ -168,8 +226,8 @@
                                             <span class="font-mono font-medium text-gray-800" x-text="a.asset_code"></span>
                                         </template>
                                         <template x-if="col.field === 'financial_code'">
-                                            <span class="font-mono text-gray-500 cursor-help"
-                                                  :title="a.financial_code || ''"
+                                            <span class="font-mono text-gray-500 fc-tip"
+                                                  :data-full="a.financial_code || ''"
                                                   x-text="a.financial_code ? (a.financial_code.length > 14 ? a.financial_code.slice(0,6) + '…' + a.financial_code.slice(-8) : a.financial_code) : '-'"></span>
                                         </template>
                                         <template x-if="col.field === 'ip' || col.field === 'mac'">
@@ -189,7 +247,7 @@
                                         </template>
                                     </td>
                                 </template>
-                                <td class="px-3 py-2 sticky right-0 bg-white group-hover:bg-gray-50 z-10 whitespace-nowrap">
+                                <td class="pin-r pin-shadow-l px-3 py-2 whitespace-nowrap">
                                     <div class="flex gap-2 text-xs">
                                         <a :href="APP_URL + '/assets/' + a.id" class="text-blue-600 hover:underline">查看</a>
                                         @if(auth()->user()->isAdmin())
@@ -236,6 +294,9 @@ document.addEventListener('alpine:init', () => {
         timer: null,
         sortField: 'id',
         sortDir: 'desc',
+        pinnedLeftFields: ['asset_code', 'financial_code', 'name'],
+        stickyOffsets: {},
+        dragSrcField: null,
         colMenuOpen: false,
         perPage: 20,
         perPageOptions: [20, 50, 100, 200],
@@ -293,6 +354,18 @@ document.addEventListener('alpine:init', () => {
                 if (saved) {
                     const data = JSON.parse(saved);
                     this.columns.forEach(c => { if (data[c.field] !== undefined) c.visible = data[c.field]; });
+                }
+            } catch(e) {}
+            // 恢复列顺序
+            try {
+                const savedOrder = localStorage.getItem('assetColumnOrder');
+                if (savedOrder) {
+                    const order = JSON.parse(savedOrder);
+                    this.columns.sort((a, b) => {
+                        const ai = order.indexOf(a.field);
+                        const bi = order.indexOf(b.field);
+                        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+                    });
                 }
             } catch(e) {}
             this.$watch('columns', () => {
@@ -367,6 +440,7 @@ document.addEventListener('alpine:init', () => {
                 }
             } catch(e) { this.assets = []; }
             this.loading = false;
+            this.$nextTick(() => this.updateStickyLayout());
         },
 
         debounceSearch() {
@@ -432,6 +506,91 @@ document.addEventListener('alpine:init', () => {
                 });
                 this.load();
             } catch(e) {}
+        },
+
+        // === 固定列偏移计算 ===
+        stickyLeftStyle(field) {
+            const off = this.stickyOffsets[field];
+            return off !== undefined ? `left:${off}px` : '';
+        },
+        updateStickyLayout() {
+            const table = this.$refs.table;
+            if (!table) return;
+            const ths = table.querySelectorAll('thead th');
+            // 第0个是序号列，固定 left:0
+            let offset = ths[0] ? ths[0].offsetWidth : 0;
+            // 遍历列 th（跳过序号和操作）
+            let ci = 1;
+            const newOffsets = {};
+            for (const col of this.columns) {
+                if (!col.visible) { ci++; continue; }
+                if (this.pinnedLeftFields.includes(col.field)) {
+                    const th = ths[ci];
+                    if (th) {
+                        newOffsets[col.field] = offset;
+                        offset += th.offsetWidth;
+                    }
+                }
+                ci++;
+            }
+            this.stickyOffsets = newOffsets;
+            // 同步 body td 的 left
+            this.$nextTick(() => {
+                const rows = table.querySelectorAll('tbody tr');
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    if (!cells[0]) return;
+                    // 序号列
+                    cells[0].style.left = '0px';
+                    let bo = cells[0].offsetWidth;
+                    let bi = 1;
+                    for (const col of this.columns) {
+                        if (!col.visible) { bi++; continue; }
+                        if (this.pinnedLeftFields.includes(col.field)) {
+                            const td = cells[bi];
+                            if (td) {
+                                td.style.left = bo + 'px';
+                                bo += td.offsetWidth;
+                            }
+                        }
+                        bi++;
+                    }
+                    // 操作列
+                    const lastTd = cells[cells.length - 1];
+                    if (lastTd) lastTd.style.right = '0px';
+                });
+            });
+        },
+
+        // === 列拖拽排序 ===
+        onDragStart(field, e) {
+            this.dragSrcField = field;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        },
+        onDragOver(field, e) {
+            if (this.dragSrcField && this.dragSrcField !== field) {
+                const th = e.currentTarget;
+                th.classList.add('drag-over');
+                setTimeout(() => th.classList.remove('drag-over'), 0);
+            }
+        },
+        onDrop(field) {
+            if (!this.dragSrcField || this.dragSrcField === field) {
+                this.dragSrcField = null;
+                return;
+            }
+            const fromIdx = this.columns.findIndex(c => c.field === this.dragSrcField);
+            const toIdx = this.columns.findIndex(c => c.field === field);
+            if (fromIdx >= 0 && toIdx >= 0) {
+                const [moved] = this.columns.splice(fromIdx, 1);
+                this.columns.splice(toIdx, 0, moved);
+                // 保存列顺序
+                const order = this.columns.map(c => c.field);
+                localStorage.setItem('assetColumnOrder', JSON.stringify(order));
+            }
+            this.dragSrcField = null;
+            this.$nextTick(() => this.updateStickyLayout());
         },
     }));
 });
