@@ -1,4 +1,24 @@
 <x-app-layout>
+@push('head')
+<style>
+    .fc-tip { position: relative; cursor: help; }
+    .fc-tip:hover::after {
+        content: attr(data-full);
+        position: absolute; bottom: calc(100% + 4px); left: 50%;
+        transform: translateX(-50%);
+        background: #1f2937; color: #fff; padding: 3px 8px;
+        border-radius: 4px; font-size: 11px; font-family: monospace;
+        white-space: nowrap; z-index: 100; pointer-events: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .fc-tip:hover::before {
+        content: ''; position: absolute; bottom: 100%; left: 50%;
+        transform: translateX(-50%);
+        border: 4px solid transparent; border-top-color: #1f2937;
+        z-index: 100; pointer-events: none;
+    }
+</style>
+@endpush
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="text-xl font-semibold text-gray-800">资产调拨单</h2>
@@ -38,21 +58,21 @@
         </div>
 
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-100">
+            <table class="min-w-max divide-y divide-gray-100 border-separate border-spacing-0">
                 <thead class="bg-gray-50/50">
                     <tr>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">流程单号</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">自有编号</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">财务编码</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">资产名称</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">流转前部门</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">流转后部门</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">流转前使用人</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">流转后使用人</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">经办人</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">日期</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">流程单号</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">自有编号</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">财务编码</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">资产名称</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">流转前部门</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">流转后部门</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">流转前使用人</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">流转后使用人</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">经办人</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">日期</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">状态</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">操作</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-100">
@@ -73,16 +93,16 @@
                                 @endif
                             </span>
                         </td>
-                        <td class="px-3 py-2.5 text-sm font-mono text-gray-800">{{ $t->asset->asset_code ?? '-' }}</td>
-                        <td class="px-3 py-2.5 text-sm font-mono text-gray-500">{{ $t->asset->financial_code ?? '-' }}</td>
-                        <td class="px-3 py-2.5 text-sm">{{ $t->asset->name ?? '-' }}</td>
-                        <td class="px-3 py-2.5 text-sm text-gray-600">{{ $t->from_dept ? \App\Models\Asset::translateDept($t->from_dept) : '-' }}</td>
-                        <td class="px-3 py-2.5 text-sm"><span class="px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">{{ $t->to_dept ? \App\Models\Asset::translateDept($t->to_dept) : '-' }}</span></td>
-                        <td class="px-3 py-2.5 text-sm text-gray-600">{{ $t->from_user ?: '-' }}</td>
-                        <td class="px-3 py-2.5 text-sm"><span class="px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">{{ $t->to_user ?: '-' }}</span></td>
-                        <td class="px-3 py-2.5 text-sm text-gray-700">{{ $t->operator }}</td>
+                        <td class="px-3 py-2.5 text-sm font-mono text-gray-800 whitespace-nowrap">{{ $t->asset->asset_code ?? '-' }}</td>
+                        <td class="px-3 py-2.5 text-sm font-mono text-gray-500 whitespace-nowrap">@php $fcl = $t->asset->financial_code ?? ''; $fcd = strlen($fcl) > 14 ? substr($fcl,0,6).'…'.substr($fcl,-8) : ($fcl ?: '-'); @endphp<span class="fc-tip" data-full="{{ $fcl }}">{{ $fcd }}</span></td>
+                        <td class="px-3 py-2.5 text-sm whitespace-nowrap">{{ $t->asset->name ?? '-' }}</td>
+                        <td class="px-3 py-2.5 text-sm text-gray-600 whitespace-nowrap">{{ $t->from_dept ? \App\Models\Asset::translateDept($t->from_dept) : '-' }}</td>
+                        <td class="px-3 py-2.5 text-sm whitespace-nowrap"><span class="px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">{{ $t->to_dept ? \App\Models\Asset::translateDept($t->to_dept) : '-' }}</span></td>
+                        <td class="px-3 py-2.5 text-sm text-gray-600 whitespace-nowrap">{{ $t->from_user ?: '-' }}</td>
+                        <td class="px-3 py-2.5 text-sm whitespace-nowrap"><span class="px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">{{ $t->to_user ?: '-' }}</span></td>
+                        <td class="px-3 py-2.5 text-sm text-gray-700 whitespace-nowrap">{{ $t->operator }}</td>
                         <td class="px-3 py-2.5 text-sm text-gray-500 whitespace-nowrap">{{ $t->created_at->format('Y-m-d H:i') }}</td>
-                        <td class="px-3 py-2.5 text-sm" @click.stop>
+                        <td class="px-3 py-2.5 text-sm whitespace-nowrap" @click.stop>
                             <span class="px-2 py-0.5 rounded text-xs font-medium
                                 {{ $t->status === 'draft' ? 'bg-yellow-100 text-yellow-700' : '' }}
                                 {{ $t->status === 'active' ? 'bg-emerald-100 text-emerald-700' : '' }}
@@ -117,12 +137,12 @@
                             <table class="min-w-full text-xs border border-gray-200 rounded-lg overflow-hidden">
                                 <thead class="bg-gray-100">
                                     <tr>
-                                        <th class="px-3 py-2 text-left text-gray-600">自有编号</th>
-                                        <th class="px-3 py-2 text-left text-gray-600">资产名称</th>
-                                        <th class="px-3 py-2 text-left text-gray-600">财务编码</th>
-                                        <th class="px-3 py-2 text-left text-gray-600">修改字段</th>
-                                        <th class="px-3 py-2 text-left text-gray-600">原值</th>
-                                        <th class="px-3 py-2 text-left text-gray-600">→ 新值</th>
+                                        <th class="px-3 py-2 text-left text-gray-600 whitespace-nowrap">自有编号</th>
+                                        <th class="px-3 py-2 text-left text-gray-600 whitespace-nowrap">资产名称</th>
+                                        <th class="px-3 py-2 text-left text-gray-600 whitespace-nowrap">财务编码</th>
+                                        <th class="px-3 py-2 text-left text-gray-600 whitespace-nowrap">修改字段</th>
+                                        <th class="px-3 py-2 text-left text-gray-600 whitespace-nowrap">原值</th>
+                                        <th class="px-3 py-2 text-left text-gray-600 whitespace-nowrap">→ 新值</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
@@ -130,9 +150,9 @@
                                         @php $a = $row['asset']; $cc = count($row['changes']); @endphp
                                         @if($cc === 0)
                                         <tr>
-                                            <td class="px-3 py-2 font-mono font-medium">{{ $a->asset_code }}</td>
-                                            <td class="px-3 py-2">{{ $a->name }}</td>
-                                            <td class="px-3 py-2 font-mono text-gray-500">{{ $a->financial_code ?: '-' }}</td>
+                                            <td class="px-3 py-2 font-mono font-medium whitespace-nowrap">{{ $a->asset_code }}</td>
+                                            <td class="px-3 py-2 whitespace-nowrap">{{ $a->name }}</td>
+                                            <td class="px-3 py-2 font-mono text-gray-500 whitespace-nowrap">@php $sfc = $a->financial_code ?: ''; $sfd = strlen($sfc) > 14 ? substr($sfc,0,6).'…'.substr($sfc,-8) : ($sfc ?: '-'); @endphp<span class="fc-tip" data-full="{{ $sfc }}">{{ $sfd }}</span></td>
                                             <td class="px-3 py-2 text-gray-400" colspan="3">无变更</td>
                                         </tr>
                                         @else
