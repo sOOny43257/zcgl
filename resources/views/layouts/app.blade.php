@@ -46,7 +46,7 @@
 <body class="font-sans antialiased text-gray-800">
     <div class="flex min-h-screen">
         @include('layouts.navigation')
-        <div class="flex-1 lg:ml-64 sm:ml-16 transition-all duration-300 pb-16 sm:pb-0">
+        <div class="flex-1 min-w-0 lg:ml-64 sm:ml-16 transition-all duration-300 pb-16 sm:pb-0">
             @if (isset($header))
                 <header class="glass sticky top-0 z-40 border-b border-gray-200/50">
                     <div class="px-6 py-4">
