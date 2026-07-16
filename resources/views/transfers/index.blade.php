@@ -18,6 +18,14 @@
         z-index: 100; pointer-events: none;
     }
 </style>
+<style>
+    .pin-l { position: sticky; z-index: 20; background-color: #fff; box-shadow: 2px 0 5px -2px rgba(0,0,0,0.08); }
+    .pin-l-th { position: sticky; z-index: 30; background-color: #f9fafb; box-shadow: 2px 0 5px -2px rgba(0,0,0,0.08); }
+    tbody tr:hover .pin-l { background-color: #f9fafb; }
+    .pin-r { position: sticky; right: 0; z-index: 20; background-color: #fff; box-shadow: -2px 0 5px -2px rgba(0,0,0,0.08); }
+    .pin-r-th { position: sticky; right: 0; z-index: 30; background-color: #f9fafb; box-shadow: -2px 0 5px -2px rgba(0,0,0,0.08); }
+    tbody tr:hover .pin-r { background-color: #f9fafb; }
+</style>
 @endpush
     <x-slot name="header">
         <div class="flex items-center justify-between">
@@ -58,12 +66,12 @@
         </div>
 
         <div class="overflow-x-auto">
-            <table class="min-w-max divide-y divide-gray-100 border-separate border-spacing-0">
+            <table id="transfer-table" class="min-w-max divide-y divide-gray-100 border-separate border-spacing-0">
                 <thead class="bg-gray-50/50">
                     <tr>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">流程单号</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">自有编号</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">财务编码</th>
+                        <th class="pin-l-th px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap" style="left:0">流程单号</th>
+                        <th class="pin-l-th px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap" data-pin="1">自有编号</th>
+                        <th class="pin-l-th px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap" data-pin="2">财务编码</th>
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">资产名称</th>
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">流转前部门</th>
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">流转后部门</th>
@@ -72,7 +80,7 @@
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">经办人</th>
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">日期</th>
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">状态</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">操作</th>
+                        <th class="pin-r-th px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">操作</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-100">
@@ -82,7 +90,7 @@
                         @click="expanded = expanded === {{ $t->id }} ? null : {{ $t->id }}"
                         @endif
                     >
-                        <td class="px-3 py-2.5 text-sm font-mono font-medium text-blue-700 hover:text-blue-900">
+                        <td class="pin-l px-3 py-2.5 text-sm font-mono font-medium text-blue-700 hover:text-blue-900" style="left:0">
                             <span class="flex items-center gap-1">
                                 @if($t->detail_count > 0)
                                 <svg class="h-3 w-3 transition-transform" :class="expanded === {{ $t->id }} ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -93,8 +101,8 @@
                                 @endif
                             </span>
                         </td>
-                        <td class="px-3 py-2.5 text-sm font-mono text-gray-800 whitespace-nowrap">{{ $t->asset->asset_code ?? '-' }}</td>
-                        <td class="px-3 py-2.5 text-sm font-mono text-gray-500 whitespace-nowrap">@php $fcl = $t->asset->financial_code ?? ''; $fcd = strlen($fcl) > 14 ? substr($fcl,0,6).'…'.substr($fcl,-8) : ($fcl ?: '-'); @endphp<span class="fc-tip" data-full="{{ $fcl }}">{{ $fcd }}</span></td>
+                        <td class="pin-l px-3 py-2.5 text-sm font-mono text-gray-800 whitespace-nowrap" data-pin="1">{{ $t->asset->asset_code ?? '-' }}</td>
+                        <td class="pin-l px-3 py-2.5 text-sm font-mono text-gray-500 whitespace-nowrap" data-pin="2">@php $fcl = $t->asset->financial_code ?? ''; $fcd = strlen($fcl) > 14 ? substr($fcl,0,6).'…'.substr($fcl,-8) : ($fcl ?: '-'); @endphp<span class="fc-tip" data-full="{{ $fcl }}">{{ $fcd }}</span></td>
                         <td class="px-3 py-2.5 text-sm whitespace-nowrap">{{ $t->asset->name ?? '-' }}</td>
                         <td class="px-3 py-2.5 text-sm text-gray-600 whitespace-nowrap">{{ $t->from_dept ? \App\Models\Asset::translateDept($t->from_dept) : '-' }}</td>
                         <td class="px-3 py-2.5 text-sm whitespace-nowrap"><span class="px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">{{ $t->to_dept ? \App\Models\Asset::translateDept($t->to_dept) : '-' }}</span></td>
@@ -110,7 +118,7 @@
                                 {{ $t->status === 'draft' ? '待提交' : ($t->status === 'cancelled' ? '已作废' : '已生效') }}
                             </span>
                         </td>
-                        <td class="px-3 py-2.5 text-sm space-x-2 whitespace-nowrap" @click.stop>
+                        <td class="pin-r px-3 py-2.5 text-sm space-x-2 whitespace-nowrap" @click.stop>
                             <a href="{{ route('transfers.show', $t) }}" target="_blank" class="text-blue-600 hover:text-blue-800 text-xs font-medium">打印</a>
                             <button onclick="openSnapshot({{ $t->id }})" type="button" class="text-cyan-600 hover:text-cyan-800 text-xs font-medium">查看</button>
                             @if($t->status === 'draft')
@@ -305,4 +313,37 @@
         if (e.target === this) closeSnapshot();
     });
     </script>
+
+<script>
+// 计算调拨单表格左固定列偏移
+function fixTransferPins() {
+    var table = document.getElementById('transfer-table');
+    if (!table) return;
+    var ths = table.querySelectorAll('thead th');
+    if (ths.length < 4) return;
+    // th[0]=流程单号(left:0), th[1]=自有编号, th[2]=财务编码
+    var off = ths[0].offsetWidth;
+    ths[1].style.left = off + 'px';
+    off += ths[1].offsetWidth;
+    ths[2].style.left = off + 'px';
+    // body rows
+    var rows = table.querySelectorAll('tbody tr');
+    rows.forEach(function(row) {
+        var cells = row.querySelectorAll('td');
+        if (cells.length < 4) return;
+        // 跳过展开行(colspan)
+        if (cells[0].hasAttribute('colspan')) return;
+        var bo = cells[0].offsetWidth;
+        cells[1].style.left = bo + 'px';
+        bo += cells[1].offsetWidth;
+        cells[2].style.left = bo + 'px';
+    });
+}
+window.addEventListener('DOMContentLoaded', fixTransferPins);
+window.addEventListener('resize', fixTransferPins);
+// Alpine 展开行后重新计算
+document.addEventListener('alpine:initialized', function() {
+    setTimeout(fixTransferPins, 100);
+});
+</script>
 </x-app-layout>
