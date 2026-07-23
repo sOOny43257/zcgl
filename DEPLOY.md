@@ -162,3 +162,57 @@ php artisan config:clear
 ### 页面样式丢失
 
 确保已运行 `npm run build` 生成 `public/build/` 目录，或检查 Nginx 静态资源配置。
+
+## 内网迁移部署（已有数据）
+
+如果你的内网服务器已有运行中的系统和数据，迁移新版本不会丢失数据。
+
+### 工作原理
+
+Laravel 使用 `migrations` 数据库表记录已执行的迁移。部署时 `php artisan migrate` 只会执行数据库中尚未记录的新迁移，不会重复执行已有的。
+
+### 迁移部署步骤
+
+1. **复制代码**到内网服务器（不覆盖 `storage/app/version.json` 和 `.env`）
+2. **安装依赖**：`composer install --no-dev --optimize-autoloader`
+3. **查看迁移状态**：`php artisan deploy:status`
+4. **执行迁移**：`php artisan deploy:migrate --force`（自动备份后执行）
+5. **清除缓存**：`php artisan cache:clear && php artisan config:clear`
+
+或一键执行：
+
+```bash
+./deploy-to-production.sh
+```
+
+### 新建迁移的安全写法
+
+新增迁移时，使用幂等检查确保在已有数据的数据库上安全执行：
+
+```php
+public function up()
+{
+    // 安全添加列：不存在时才添加
+    Schema::table('assets', function (Blueprint $table) {
+        if (!Schema::hasColumn('assets', 'new_field')) {
+            $table->string('new_field')->nullable();
+        }
+    });
+
+    // 安全创建表：不存在时才创建
+    if (!Schema::hasTable('new_table')) {
+        Schema::create('new_table', function (Blueprint $table) {
+            $table->id();
+            $table->timestamps();
+        });
+    }
+}
+```
+
+### 安全回滚
+
+迁移前会自动备份到 `storage/app/backups/deploy/`。如需恢复：
+
+```bash
+mysql -u root -p zcgl < storage/app/backups/deploy/zcgl_2026-07-10_123456.sql
+```

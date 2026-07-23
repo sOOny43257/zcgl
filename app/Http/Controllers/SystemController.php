@@ -15,7 +15,8 @@ class SystemController extends Controller
         $backups = $this->listBackups();
         $dbSize = $this->getDbSize();
         $mysqldumpPath = $this->findBinary('mysqldump');
-        return view('system.index', compact('backups', 'dbSize', 'mysqldumpPath'));
+        $backupPath = storage_path('backups');
+        return view('system.index', compact('backups', 'dbSize', 'mysqldumpPath', 'backupPath'));
     }
 
     // 初始化数据库
@@ -40,12 +41,11 @@ class SystemController extends Controller
             $path = storage_path('backups');
 
             if (!File::exists($path)) {
-                File::makeDirectory($path, 0755, true);
+                File::makeDirectory($path, 0777, true);
             }
 
             $filepath = $path . '/' . $filename;
 
-            // 用临时配置文件传密码，避免命令行密码泄漏警告污染 SQL 文件
             $cnfFile = $this->createTempCnf($db);
 
             $host = $db['host'] ?? '127.0.0.1';
@@ -111,6 +111,101 @@ class SystemController extends Controller
         }
     }
 
+    // 导入 SQL 文件恢复数据（自动备份 + 失败回滚）
+    public function importSql(Request $request)
+    {
+        $request->validate([
+            'sql_file' => 'required|file|mimes:sql,txt,gz|max:102400',
+        ]);
+
+        $file = $request->file('sql_file');
+        $db = config('database.connections.mysql');
+        $mysql = $this->findBinary('mysql');
+        $mysqldump = $this->findBinary('mysqldump');
+
+        $backupPath = storage_path('backups');
+        if (!File::exists($backupPath)) {
+            File::makeDirectory($backupPath, 0777, true);
+        }
+
+        // Step 1: 自动备份当前数据库
+        $rollbackFile = $backupPath . '/rollback_' . now()->format('Ymd_His') . '.sql';
+        $host = $db['host'] ?? '127.0.0.1';
+        $port = $db['port'] ?? '3306';
+        $cnfFile = $this->createTempCnf($db);
+
+        try {
+            $dumpCmd = sprintf(
+                '%s --defaults-extra-file=%s -h %s -P %s %s > %s 2>/dev/null',
+                escapeshellarg($mysqldump),
+                escapeshellarg($cnfFile),
+                escapeshellarg($host),
+                escapeshellarg($port),
+                escapeshellarg($db['database']),
+                escapeshellarg($rollbackFile)
+            );
+            $this->execCommand($dumpCmd);
+        } catch (\Exception $e) {
+            @unlink($cnfFile);
+            return back()->with('error', '导入前自动备份失败，已中止导入: ' . $e->getMessage());
+        }
+
+        // Step 2: 处理 .gz 压缩文件
+        $tmpSql = $file->getRealPath();
+        $isGzip = str_ends_with($file->getClientOriginalName(), '.gz');
+        $decompressed = null;
+
+        if ($isGzip) {
+            $decompressed = $backupPath . '/_import_tmp_' . uniqid() . '.sql';
+            exec('gunzip -c ' . escapeshellarg($tmpSql) . ' > ' . escapeshellarg($decompressed) . ' 2>&1', $gzOut, $gzCode);
+            if ($gzCode !== 0) {
+                @unlink($cnfFile);
+                return back()->with('error', '解压失败: ' . implode(' ', $gzOut));
+            }
+            $tmpSql = $decompressed;
+        }
+
+        // Step 3: 导入 SQL 文件
+        try {
+            $importCmd = sprintf(
+                '%s --defaults-extra-file=%s -h %s -P %s %s < %s 2>&1',
+                escapeshellarg($mysql),
+                escapeshellarg($cnfFile),
+                escapeshellarg($host),
+                escapeshellarg($port),
+                escapeshellarg($db['database']),
+                escapeshellarg($tmpSql)
+            );
+            $this->execCommand($importCmd);
+        } catch (\Exception $e) {
+            // 导入失败，自动回滚
+            try {
+                $rollbackCmd = sprintf(
+                    '%s --defaults-extra-file=%s -h %s -P %s %s < %s 2>/dev/null',
+                    escapeshellarg($mysql),
+                    escapeshellarg($cnfFile),
+                    escapeshellarg($host),
+                    escapeshellarg($port),
+                    escapeshellarg($db['database']),
+                    escapeshellarg($rollbackFile)
+                );
+                $this->execCommand($rollbackCmd);
+                @unlink($cnfFile);
+                if ($decompressed) @unlink($decompressed);
+                return back()->with('error', 'SQL 导入失败，已自动回滚到导入前状态。错误: ' . $e->getMessage());
+            } catch (\Exception $rbEx) {
+                @unlink($cnfFile);
+                if ($decompressed) @unlink($decompressed);
+                return back()->with('error', 'SQL 导入失败且回滚也失败！请手动恢复。回滚备份: ' . basename($rollbackFile) . ' 原始错误: ' . $e->getMessage());
+            }
+        }
+
+        @unlink($cnfFile);
+        if ($decompressed) @unlink($decompressed);
+
+        return back()->with('success', 'SQL 文件导入成功！回滚备份已保存: ' . basename($rollbackFile));
+    }
+
     // 下载备份文件
     public function downloadBackup($filename)
     {
@@ -173,11 +268,9 @@ class SystemController extends Controller
 
     /**
      * 自动查找 mysql / mysqldump 命令的完整路径。
-     * 优先使用 .env 中配置的 MYSQL_BIN_DIR，否则自动探测常见安装位置。
      */
     private function findBinary(string $name): string
     {
-        // 1) .env 显式指定目录
         $binDir = env('MYSQL_BIN_DIR');
         if ($binDir) {
             $full = rtrim($binDir, '/') . '/' . $name;
@@ -186,7 +279,6 @@ class SystemController extends Controller
             }
         }
 
-        // 2) 系统 PATH（exec 可用时）
         if (function_exists('exec')) {
             $output = [];
             exec("which {$name} 2>/dev/null", $output, $code);
@@ -195,18 +287,13 @@ class SystemController extends Controller
             }
         }
 
-        // 3) 常见安装路径
         $candidates = [
-            // XAMPP (macOS / Linux)
             '/Applications/XAMPP/xamppfiles/bin/' . $name,
             '/opt/lampp/bin/' . $name,
-            // Homebrew
             '/opt/homebrew/bin/' . $name,
             '/usr/local/bin/' . $name,
-            // Linux 标准
             '/usr/bin/' . $name,
             '/usr/sbin/' . $name,
-            // MariaDB (某些发行版)
             '/usr/local/mariadb/bin/' . $name,
             '/usr/local/mysql/bin/' . $name,
         ];
@@ -217,7 +304,6 @@ class SystemController extends Controller
             }
         }
 
-        // 4) 兜底：直接用命令名
         return $name;
     }
 
@@ -230,6 +316,7 @@ class SystemController extends Controller
             ->filter(fn($f) => str_ends_with($f->getFilename(), '.sql'))
             ->map(fn($f) => [
                 'name' => $f->getFilename(),
+                'path' => $f->getRealPath(),
                 'size' => $this->formatBytes($f->getSize()),
                 'date' => date('Y-m-d H:i:s', $f->getMTime()),
             ])
