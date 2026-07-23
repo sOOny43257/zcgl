@@ -216,3 +216,48 @@ public function up()
 ```bash
 mysql -u root -p zcgl < storage/app/backups/deploy/zcgl_2026-07-10_123456.sql
 ```
+
+## 结构漂移检测（deploy:diff）
+
+数据库若被手动改表结构（绕过 migration），会导致迁移文件与真实结构不一致，内网增量迁移会漏掉这些改动。
+
+`deploy:diff` 会在一个临时空库里跑全部 migrations 推导出"代码结构"，再与当前真实数据库逐列、逐索引、逐表对比，找出手动改动：
+
+```bash
+php artisan deploy:diff
+```
+
+输出会区分：实际库独有（migration 缺失）、migration 独有（实际库缺失）、属性不同、索引定义不同、仅索引名不同（功能等价）。发现差异后应新建 migration 同步，不要直接手动改表。
+
+## 打包迁移（含数据库快照）
+
+`package.sh` 打包时会自动导出数据库快照到 `storage/app/deploy_snapshot/` 并一起打包：
+
+- `zcgl_full_*.sql`：结构+数据，供全新内网一键导入复刻
+- `zcgl_structure_*.sql`：仅结构，供已有数据的内网参考比对
+
+```bash
+./package.sh            # 打包代码 + 完整数据库快照
+./package.sh --no-db     # 只打代码包，不导出快照
+./package.sh --data-only # 仅导出系统数据（打印模板/部门编码）
+```
+
+## 全新内网 vs 已有数据内网
+
+`deploy-to-production.sh` 会自动识别目标数据库状态：
+
+- **全新空库**：检测到打包时导出的完整快照后，提示选择 [1] 导入快照一键复刻（推荐）或 [2] 用 migrations 建空结构。导入后自动跑 `deploy:diff` 校验。
+- **已有数据**：先跑 `deploy:diff` 检测漂移，再 `deploy:migrate` 增量迁移（自动备份，不丢数据）。
+
+迁移完成后建议再跑一次 `php artisan deploy:diff` 确认内网结构与 migrations 一致。
+
+## 命令速查
+
+```bash
+php artisan deploy:status     # 部署状态：已执行/待执行迁移数、表统计
+php artisan deploy:migrate    # 安全迁移：自动备份后执行待运行迁移
+php artisan deploy:diff       # 结构漂移检测：实际库 vs migrations 推导
+./package.sh                  # 打包代码 + 数据库快照到桌面
+./deploy-to-production.sh     # 内网一键部署（自动识别全新/已有库）
+./export-system-data.sh       # 仅导出打印模板与部门编码数据
+```
